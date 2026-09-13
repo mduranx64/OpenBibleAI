@@ -1,0 +1,19 @@
+// Per-developer signing overrides for OpenBibleAI.
+//
+// This file is an example. To use it:
+//
+//     cp Config/Local.xcconfig.example Config/Local.xcconfig
+//
+// Then edit the values below. Local.xcconfig is gitignored, so your signing
+// identity never lands in a commit. It is picked up automatically by
+// Shared.xcconfig; no Xcode settings need changing.
+//
+// Simulator builds work without this file at all.
+
+// Your 10-character Apple Developer Team ID, from
+// developer.apple.com/account -> Membership Details.
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Reverse-DNS prefix for bundle identifiers. Use a domain you control, since
+// bundle identifiers must be globally unique to register with Apple.
+BUNDLE_ID_PREFIX = com.yourdomain

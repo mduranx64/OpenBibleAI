@@ -1,0 +1,19 @@
+// Shared build configuration for OpenBibleAI.
+//
+// Signing identity is intentionally NOT committed. To build on a device,
+// copy Local.xcconfig.example to Local.xcconfig and fill in your values;
+// Local.xcconfig is gitignored and is included automatically if present.
+
+// Your 10-character Apple Developer Team ID. Empty = simulator-only builds.
+DEVELOPMENT_TEAM =
+
+// Reverse-DNS prefix for all bundle identifiers in this project.
+// Override with a domain you control before signing for a device.
+BUNDLE_ID_PREFIX = com.example
+
+// Derives per-target identifiers from the target name, e.g.
+// com.example.OpenBibleAI, com.example.OpenBibleAITests.
+PRODUCT_BUNDLE_IDENTIFIER = $(BUNDLE_ID_PREFIX).$(PRODUCT_NAME:rfc1034identifier)
+
+// Per-developer overrides. The "?" makes this optional.
+#include? "Local.xcconfig"
