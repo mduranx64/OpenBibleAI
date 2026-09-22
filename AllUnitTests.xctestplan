@@ -1,0 +1,33 @@
+{
+  "configurations" : [
+    {
+      "id" : "8C68C2E6-3C62-4FA3-9DEF-BD8860F33976",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "performanceAntipatternCheckerEnabled" : true,
+    "testInteropMode" : "complete"
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:OpenBibleAI.xcodeproj",
+        "identifier" : "496B16F330570785008E186E",
+        "name" : "OpenBibleAITests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/BibleDomain",
+        "identifier" : "BibleDomainTests",
+        "name" : "BibleDomainTests"
+      }
+    }
+  ],
+  "version" : 1
+}

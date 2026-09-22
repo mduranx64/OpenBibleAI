@@ -17,6 +17,7 @@
     },
   ],
   "files": [
+    { "path": "AllUnitTests.xctestplan" },
     { "kind": "folder", "path": "OpenBibleAI", "target-membership": [ "OpenBibleAI" ] },
     { "kind": "folder", "path": "OpenBibleAITests", "target-membership": [ "OpenBibleAITests" ] },
     { "kind": "folder", "path": "OpenBibleAIUITests", "target-membership": [ "OpenBibleAIUITests" ] },
