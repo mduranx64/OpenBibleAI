@@ -1,7 +1,7 @@
 import Testing
-@testable import BibleDomain
+import BibleDomain
 
-@Test func bibleReferenceStoresItsLocation() async throws {
+@Test func bibleReferenceStoresItsLocation() {
     let ref = BibleReference(bookID: "GEN", chapter: 1, verse: 1)
     
     #expect(ref.bookID == "GEN")
