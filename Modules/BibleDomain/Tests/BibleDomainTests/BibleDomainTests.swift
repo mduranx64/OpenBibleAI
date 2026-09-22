@@ -1,8 +1,10 @@
 import Testing
 @testable import BibleDomain
 
-@Test func example() async throws {
-    // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-    // Swift Testing Documentation
-    // https://swiftpackageindex.com/swiftlang/swift-testing/documentation
+@Test func bibleReferenceStoresItsLocation() async throws {
+    let ref = BibleReference(bookID: "GEN", chapter: 1, verse: 1)
+    
+    #expect(ref.bookID == "GEN")
+    #expect(ref.verse == 1)
+    #expect(ref.chapter == 1)
 }
