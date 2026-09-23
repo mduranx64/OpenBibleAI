@@ -17,11 +17,16 @@ struct BibleReferenceTests {
         #expect(reference.chapter == 1)
     }
     
-    @Test func bibleReferenceRejectsChapterZero()  {
+    @Test(arguments: [0, -1])
+    func bibleReferenceRejectsInvalidChapter(_ chapter: Int) {
         #expect(
-            throws: BibleReference.ValidationError.invalidChapter(0)
+            throws: BibleReference.ValidationError.invalidChapter(chapter)
         ) {
-            try BibleReference(bookID: "GEN", chapter: 0, verse: 1)
+            try BibleReference(
+                bookID: "GEN",
+                chapter: chapter,
+                verse: 1
+            )
         }
     }
     
