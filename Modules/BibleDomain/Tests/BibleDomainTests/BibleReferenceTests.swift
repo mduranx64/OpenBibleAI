@@ -30,19 +30,21 @@ struct BibleReferenceTests {
         }
     }
     
-    @Test func bibleReferenceRejectsVerseZero() {
+    @Test(arguments: [0, -1])
+    func bibleReferenceRejectsVerseZero(_ verse: Int) {
         #expect(
-            throws: BibleReference.ValidationError.invalidVerse(0)
+            throws: BibleReference.ValidationError.invalidVerse(verse)
         ) {
-            try BibleReference(bookID: "GEN", chapter: 1, verse: 0)
+            try BibleReference(bookID: "GEN", chapter: 1, verse: verse)
         }
     }
     
-    @Test func bibleReferenceRejectsBookIDEmpty() {
+    @Test(arguments: ["", " ", "\n", "\t"])
+    func bibleReferenceRejectsBlankBookID(_ bookID: String) {
         #expect(
-            throws: BibleReference.ValidationError.emptyBookID
+            throws: BibleReference.ValidationError.blankBookID
         ) {
-           try BibleReference(bookID: "", chapter: 1, verse: 1)
+           try BibleReference(bookID: bookID, chapter: 1, verse: 1)
         }
         
     }

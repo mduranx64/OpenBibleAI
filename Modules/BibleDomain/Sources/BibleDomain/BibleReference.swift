@@ -23,8 +23,8 @@ public struct BibleReference: Hashable, Sendable {
             throw .invalidVerse(verse)
         }
         
-        guard !bookID.isEmpty else {
-            throw .emptyBookID
+        guard bookID.contains(where: { !$0.isWhitespace }) else {
+            throw .blankBookID
         }
         self.bookID = bookID
         self.chapter = chapter
@@ -32,7 +32,7 @@ public struct BibleReference: Hashable, Sendable {
     }
     
     public enum ValidationError: Error, Equatable, Sendable {
-        case emptyBookID
+        case blankBookID
         case invalidChapter(Int)
         case invalidVerse(Int)
     }
