@@ -51,4 +51,24 @@ public struct JSONBibleRepository: BibleRepository {
     public enum LoadError: Error, Equatable, Sendable {
         case duplicateReference(BibleReference)
     }
+    
+    @concurrent
+    public static func load(
+        from fileURL: URL
+    ) async throws -> Self {
+        try Task.checkCancellation()
+
+        let data = try Data(
+            contentsOf: fileURL,
+            options: .mappedIfSafe
+        )
+
+        try Task.checkCancellation()
+
+        let repository = try Self(data: data)
+
+        try Task.checkCancellation()
+
+        return repository
+    }
 }

@@ -99,4 +99,46 @@ struct JSONBibleRepositoryTests {
             )
         }
     }
+    
+    @Test
+    func repositoryLoadsVersesFromFile() async throws {
+        let json = """
+        [
+            {
+                "book_id": "GEN",
+                "chapter": 1,
+                "verse": 1,
+                "text": "In the beginning"
+            }
+        ]
+        """
+
+        let fileURL = FileManager.default
+            .temporaryDirectory
+            .appendingPathComponent("\(UUID()).json")
+
+        try Data(json.utf8).write(to: fileURL)
+
+        defer {
+            try? FileManager.default.removeItem(
+                at: fileURL
+            )
+        }
+
+        let repository = try await JSONBibleRepository.load(
+            from: fileURL
+        )
+
+        let reference = try BibleReference(
+            bookID: "GEN",
+            chapter: 1,
+            verse: 1
+        )
+
+        let verse = try await repository.verse(
+            at: reference
+        )
+
+        #expect(verse.text == "In the beginning")
+    }
 }
