@@ -14,6 +14,9 @@
     {
       "kind": "local",
       "path": "Modules/BibleDomain",
+    }, {
+      "kind": "local",
+      "path": "Modules/BibleData",
     },
   ],
   "files": [
@@ -54,6 +57,9 @@
           "product-name": "BibleData",
           "build-phase": { "build-phase": "frameworks" },
         }, {
+          "product-name": "BibleData",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "product-name": "BibleDomain",
           "build-phase": { "build-phase": "frameworks" },
         },
@@ -84,7 +90,6 @@
         "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "@executable_path/../Frameworks",
         "LIBRARY_SEARCH_PATHS": [
           "$(inherited)",
-          "$(PROJECT_DIR)/BibleData\\ 2/.build/out/Products/Debug",
         ],
         "MACOSX_DEPLOYMENT_TARGET": "27.0",
         "MARKETING_VERSION": "1.0",

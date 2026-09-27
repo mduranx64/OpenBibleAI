@@ -27,6 +27,13 @@
         "identifier" : "BibleDomainTests",
         "name" : "BibleDomainTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/BibleData",
+        "identifier" : "BibleDataTests",
+        "name" : "BibleDataTests"
+      }
     }
   ],
   "version" : 1
