@@ -31,7 +31,7 @@ struct BibleReferenceTests {
     }
     
     @Test(arguments: [0, -1])
-    func bibleReferenceRejectsVerseZero(_ verse: Int) {
+    func bibleReferenceRejectsInvalidVerse(_ verse: Int) {
         #expect(
             throws: BibleReference.ValidationError.invalidVerse(verse)
         ) {
