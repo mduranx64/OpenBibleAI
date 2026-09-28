@@ -6,44 +6,62 @@
 //
 
 import SwiftUI
+import BibleAI
 import BibleData
 import BibleDomain
 
 @main
 struct OpenBibleAIApp: App {
     @State private var appModel: AppModel
+    @State private var studyAssistantModel: StudyAssistantModel
 
     @MainActor
     init() {
-        let model = AppModel(
+        let appModel = AppModel(
             loadRepository: {
                 guard let fileURL = Bundle.main.url(
                     forResource: "sample-bible",
                     withExtension: "json"
                 ) else {
-                    throw LaunchError
-                        .missingBibleResource
+                    throw LaunchError.missingBibleResource
                 }
 
-                let jsonRepository =
+                let repository =
                     try await JSONBibleRepository.load(
                         from: fileURL
                     )
 
                 return CachingBibleRepository(
-                    base: jsonRepository
+                    base: repository
                 )
             }
         )
 
-        _appModel = State(
-            initialValue: model
+        let provider = SimulatedAIProvider(
+            chunks: [
+                "This passage presents God ",
+                "as the creator and introduces ",
+                "the beginning of the biblical narrative."
+            ],
+            delay: .milliseconds(250)
+        )
+
+        let assistantModel = StudyAssistantModel(
+            provider: provider
+        )
+
+        _appModel = State(initialValue: appModel)
+        _studyAssistantModel = State(
+            initialValue: assistantModel
         )
     }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(appModel: appModel)
+            ContentView(
+                appModel: appModel,
+                studyAssistantModel: studyAssistantModel
+            )
         }
     }
 }

@@ -10,18 +10,22 @@ import BibleDomain
 
 struct BibleReaderView: View {
     let model: BibleReaderModel
+    let studyAssistantModel: StudyAssistantModel
     let references: [BibleReference]
 
     @State private var selectedReference: BibleReference?
 
     init(
         model: BibleReaderModel,
+        studyAssistantModel: StudyAssistantModel,
         references: [BibleReference]
     ) {
         precondition(!references.isEmpty)
 
         self.model = model
+        self.studyAssistantModel = studyAssistantModel
         self.references = references
+
         _selectedReference = State(
             initialValue: references.first
         )
@@ -41,7 +45,7 @@ struct BibleReaderView: View {
                 ideal: 200,
                 max: 280
             )
-        } detail: {
+        } content: {
             if let selectedReference {
                 verseContent(for: selectedReference)
                     .task(id: selectedReference) {
@@ -55,7 +59,30 @@ struct BibleReaderView: View {
                     systemImage: "book.closed"
                 )
             }
+        } detail: {
+            if let selectedReference,
+               case let .loaded(verse) = model.state,
+               verse.reference == selectedReference {
+                StudyAssistantView(
+                    model: studyAssistantModel,
+                    verse: verse
+                )
+                .id(verse.reference)
+                .navigationSplitViewColumnWidth(
+                    min: 320,
+                    ideal: 400
+                )
+            } else {
+                ContentUnavailableView(
+                    "AI Study Assistant",
+                    systemImage: "sparkles",
+                    description: Text(
+                        "Select a verse to begin studying."
+                    )
+                )
+            }
         }
+        .navigationSplitViewStyle(.balanced)
     }
 
     @ViewBuilder

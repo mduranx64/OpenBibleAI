@@ -7,10 +7,12 @@
 
 import SwiftUI
 import BibleDomain
+import BibleAI
 
 struct ContentView: View {
     let appModel: AppModel
-
+    let studyAssistantModel: StudyAssistantModel
+    
     private static let initialReferences: [BibleReference] = {
         (1...3).map { verse in
             do {
@@ -36,6 +38,7 @@ struct ContentView: View {
             case let .ready(readerModel):
                 BibleReaderView(
                     model: readerModel,
+                    studyAssistantModel: studyAssistantModel,
                     references: Self.initialReferences
                 )
 
