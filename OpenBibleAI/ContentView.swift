@@ -11,36 +11,40 @@ import BibleDomain
 struct ContentView: View {
     let appModel: AppModel
 
+    private static let initialReference: BibleReference = {
+        do {
+            return try BibleReference(
+                bookID: "GEN",
+                chapter: 1,
+                verse: 1
+            )
+        } catch {
+            preconditionFailure(
+                "Invalid initial Bible reference: \(error)"
+            )
+        }
+    }()
+
     var body: some View {
         Group {
             switch appModel.state {
             case .idle, .loading:
                 ProgressView("Loading Bible…")
 
-            case .ready:
-                VStack(spacing: 12) {
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 42))
-                        .foregroundStyle(.tint)
-
-                    Text("Bible is ready")
-                        .font(.title2)
-
-                    Text("The local repository loaded successfully.")
-                        .foregroundStyle(.secondary)
-                }
+            case let .ready(readerModel):
+                BibleReaderView(
+                    model: readerModel,
+                    reference: Self.initialReference
+                )
 
             case let .failed(message):
                 VStack(spacing: 12) {
-                    Image(
-                        systemName:
-                            "exclamationmark.triangle"
-                    )
-                    .font(.system(size: 42))
-                    .foregroundStyle(.orange)
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.orange)
 
                     Text("Couldn’t load the Bible")
-                        .font(.title2)
+                        .font(.headline)
 
                     Text(message)
                         .foregroundStyle(.secondary)
@@ -53,22 +57,9 @@ struct ContentView: View {
                 }
             }
         }
-        .frame(
-            minWidth: 640,
-            minHeight: 480
-        )
+        .frame(minWidth: 640, minHeight: 480)
         .task {
             await appModel.start()
         }
     }
-}
-
-#Preview {
-    ContentView(
-        appModel: AppModel(
-            loadRepository: {
-                InMemoryBibleRepository(verses: [])
-            }
-        )
-    )
 }
