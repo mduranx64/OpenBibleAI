@@ -26,6 +26,20 @@ public struct AIResponseCollector: Sendable {
 
         try Task.checkCancellation()
 
-        return chunks.joined()
+        let response = chunks.joined()
+
+        guard response.contains(where: { !$0.isWhitespace }) else {
+            throw ResponseError.emptyResponse
+        }
+
+        return response
+    }
+    
+    public enum ResponseError:
+        Error,
+        Equatable,
+        Sendable
+    {
+        case emptyResponse
     }
 }

@@ -34,6 +34,13 @@
         "identifier" : "BibleDataTests",
         "name" : "BibleDataTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Modules\/BibleAI",
+        "identifier" : "BibleAITests",
+        "name" : "BibleAITests"
+      }
     }
   ],
   "version" : 1

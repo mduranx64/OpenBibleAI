@@ -17,6 +17,9 @@
     }, {
       "kind": "local",
       "path": "Modules/BibleData",
+    }, {
+      "kind": "local",
+      "path": "Modules/BibleAI",
     },
   ],
   "files": [
@@ -55,6 +58,9 @@
       ],
       "package-product-members": [
         {
+          "product-name": "BibleAI",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "product-name": "BibleData",
           "build-phase": { "build-phase": "frameworks" },
         }, {
