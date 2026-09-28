@@ -12,7 +12,7 @@ struct BibleReaderView: View {
     let model: BibleReaderModel
     let references: [BibleReference]
 
-    @State private var selectedIndex: Int
+    @State private var selectedReference: BibleReference?
 
     init(
         model: BibleReaderModel,
@@ -22,84 +22,92 @@ struct BibleReaderView: View {
 
         self.model = model
         self.references = references
-        _selectedIndex = State(initialValue: 0)
-    }
-
-    private var selectedReference: BibleReference {
-        references[selectedIndex]
+        _selectedReference = State(
+            initialValue: references.first
+        )
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Group {
-                switch model.state {
-                case .idle, .loading:
-                    ProgressView("Loading verse…")
-
-                case let .loaded(verse):
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(
-                            "\(verse.reference.bookID) " +
-                            "\(verse.reference.chapter):" +
-                            "\(verse.reference.verse)"
-                        )
-                        .font(.title2.bold())
-
-                        Text(verse.text)
-                            .font(.title3)
-                            .textSelection(.enabled)
-                    }
-                    .frame(
-                        maxWidth: 600,
-                        maxHeight: .infinity,
-                        alignment: .topLeading
-                    )
-                    .padding(32)
-
-                case let .failed(message):
-                    VStack(spacing: 12) {
-                        Text("Couldn’t load the verse")
-                            .font(.headline)
-
-                        Text(message)
-                            .foregroundStyle(.secondary)
-
-                        Button("Retry") {
-                            Task {
-                                await model.load(
-                                    reference: selectedReference
-                                )
-                            }
-                        }
-                    }
+        NavigationSplitView {
+            List(selection: $selectedReference) {
+                ForEach(references, id: \.self) { reference in
+                    Text("Verse \(reference.verse)")
+                        .tag(reference)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .navigationTitle("Genesis 1")
+            .navigationSplitViewColumnWidth(
+                min: 160,
+                ideal: 200,
+                max: 280
+            )
+        } detail: {
+            if let selectedReference {
+                verseContent(for: selectedReference)
+                    .task(id: selectedReference) {
+                        await model.load(
+                            reference: selectedReference
+                        )
+                    }
+            } else {
+                ContentUnavailableView(
+                    "Select a Verse",
+                    systemImage: "book.closed"
+                )
+            }
+        }
+    }
 
-            Divider()
+    @ViewBuilder
+    private func verseContent(
+        for reference: BibleReference
+    ) -> some View {
+        switch model.state {
+        case .idle, .loading:
+            ProgressView("Loading verse…")
 
-            HStack {
-                Button("Previous") {
-                    selectedIndex -= 1
+        case let .loaded(verse):
+            if verse.reference == reference {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(
+                        "\(verse.reference.bookID) " +
+                        "\(verse.reference.chapter):" +
+                        "\(verse.reference.verse)"
+                    )
+                    .font(.title2.bold())
+
+                    Text(verse.text)
+                        .font(.title3)
+                        .textSelection(.enabled)
                 }
-                .disabled(selectedIndex == 0)
+                .frame(
+                    maxWidth: 600,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
+                .padding(32)
+            } else {
+                ProgressView("Loading verse…")
+            }
 
-                Spacer()
+        case let .failed(message):
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.largeTitle)
+                    .foregroundStyle(.orange)
 
-                Text("\(selectedIndex + 1) of \(references.count)")
+                Text("Couldn’t load the verse")
+                    .font(.headline)
+
+                Text(message)
                     .foregroundStyle(.secondary)
 
-                Spacer()
-
-                Button("Next") {
-                    selectedIndex += 1
+                Button("Retry") {
+                    Task {
+                        await model.load(reference: reference)
+                    }
                 }
-                .disabled(selectedIndex == references.count - 1)
             }
-            .padding()
-        }
-        .task(id: selectedReference) {
-            await model.load(reference: selectedReference)
         }
     }
 }
