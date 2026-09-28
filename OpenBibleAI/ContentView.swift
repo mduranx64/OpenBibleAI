@@ -11,17 +11,19 @@ import BibleDomain
 struct ContentView: View {
     let appModel: AppModel
 
-    private static let initialReference: BibleReference = {
-        do {
-            return try BibleReference(
-                bookID: "GEN",
-                chapter: 1,
-                verse: 1
-            )
-        } catch {
-            preconditionFailure(
-                "Invalid initial Bible reference: \(error)"
-            )
+    private static let initialReferences: [BibleReference] = {
+        (1...3).map { verse in
+            do {
+                return try BibleReference(
+                    bookID: "GEN",
+                    chapter: 1,
+                    verse: verse
+                )
+            } catch {
+                preconditionFailure(
+                    "Invalid initial Bible reference: \(error)"
+                )
+            }
         }
     }()
 
@@ -34,7 +36,7 @@ struct ContentView: View {
             case let .ready(readerModel):
                 BibleReaderView(
                     model: readerModel,
-                    reference: Self.initialReference
+                    references: Self.initialReferences
                 )
 
             case let .failed(message):
