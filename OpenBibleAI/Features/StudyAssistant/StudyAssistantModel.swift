@@ -24,6 +24,9 @@ final class StudyAssistantModel {
 
     @ObservationIgnored
     private let provider: any AIProvider
+    
+    @ObservationIgnored
+    private var requestGeneration = 0
 
     init(provider: any AIProvider) {
         self.provider = provider
@@ -33,6 +36,9 @@ final class StudyAssistantModel {
         verse: BibleVerse,
         question: String
     ) async {
+        requestGeneration += 1
+        let currentGeneration = requestGeneration
+
         answer = ""
 
         do {
@@ -47,14 +53,32 @@ final class StudyAssistantModel {
                 for: request
             ) {
                 try Task.checkCancellation()
+
+                guard currentGeneration == requestGeneration else {
+                    return
+                }
+
                 answer.append(contentsOf: chunk)
             }
 
             try Task.checkCancellation()
+
+            guard currentGeneration == requestGeneration else {
+                return
+            }
+
             state = .completed
         } catch is CancellationError {
+            guard currentGeneration == requestGeneration else {
+                return
+            }
+
             state = .idle
         } catch {
+            guard currentGeneration == requestGeneration else {
+                return
+            }
+
             state = .failed(String(describing: error))
         }
     }
