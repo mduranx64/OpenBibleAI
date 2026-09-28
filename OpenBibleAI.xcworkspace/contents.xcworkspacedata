@@ -10,4 +10,7 @@
    <FileRef
       location = "group:Modules/BibleData">
    </FileRef>
+   <FileRef
+      location = "group:Modules/BibleAI">
+   </FileRef>
 </Workspace>
