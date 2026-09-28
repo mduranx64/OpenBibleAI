@@ -22,28 +22,41 @@ final class BibleReaderModel {
 
     @ObservationIgnored
     private let repository: any BibleRepository
-
+    
+    @ObservationIgnored
+    private var loadGeneration = 0
+    
     init(repository: any BibleRepository) {
         self.repository = repository
     }
 
     func load(reference: BibleReference) async {
-        let previousState = state
+        loadGeneration += 1
+        let currentGeneration = loadGeneration
 
+        let previousState = state
         state = .loading
 
         do {
-            let verse = try await repository.verse(
-                at: reference
-            )
+            let verse = try await repository.verse(at: reference)
+
+            guard currentGeneration == loadGeneration else {
+                return
+            }
 
             state = .loaded(verse)
         } catch is CancellationError {
+            guard currentGeneration == loadGeneration else {
+                return
+            }
+
             state = previousState
         } catch {
-            state = .failed(
-                String(describing: error)
-            )
+            guard currentGeneration == loadGeneration else {
+                return
+            }
+
+            state = .failed(String(describing: error))
         }
     }
 }
