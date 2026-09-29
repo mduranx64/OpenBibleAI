@@ -129,6 +129,35 @@ struct StudyAssistantModelTests {
         #expect(model.answer == "New answer.")
         #expect(model.state == .completed)
     }
+    
+    @Test
+    func displaysOllamaServerMessageOnFailure() async throws {
+        let reference = try BibleReference(
+            bookID: "GEN",
+            chapter: 1,
+            verse: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: reference,
+            text: "In the beginning, God created the heavens and the earth."
+        )
+
+        let model = StudyAssistantModel(
+            provider: OllamaErrorAIProvider()
+        )
+
+        await model.ask(
+            verse: verse,
+            question: "Explain this verse."
+        )
+
+        #expect(
+            model.state == .failed(
+                "model 'missing-model' not found"
+            )
+        )
+    }
 
     private func waitUntil(
         _ condition: () -> Bool
@@ -165,6 +194,21 @@ private struct TwoStreamAIProvider: AIProvider {
             firstStream
         } else {
             secondStream
+        }
+    }
+}
+
+private struct OllamaErrorAIProvider: AIProvider {
+    func streamResponse(
+        for request: BibleStudyRequest
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.finish(
+                throwing:
+                    OllamaProvider.ProviderError.serverMessage(
+                        "model 'missing-model' not found"
+                    )
+            )
         }
     }
 }

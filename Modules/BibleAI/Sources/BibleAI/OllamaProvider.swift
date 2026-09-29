@@ -107,11 +107,18 @@ public struct OllamaProvider: AIProvider, Sendable {
     }
     
     public enum ProviderError:
-        Error,
+        LocalizedError,
         Equatable,
         Sendable
     {
         case serverMessage(String)
+
+        public var errorDescription: String? {
+            switch self {
+            case let .serverMessage(message):
+                message
+            }
+        }
     }
 }
 

@@ -5,6 +5,7 @@
 //  Created by Miguel Duran on 28-09-26.
 //
 
+import Foundation
 import Observation
 import BibleAI
 import BibleDomain
@@ -79,7 +80,20 @@ final class StudyAssistantModel {
                 return
             }
 
-            state = .failed(String(describing: error))
+            state = .failed(Self.message(for: error))
         }
     }
+    
+    private static func message(
+        for error: any Error
+    ) -> String {
+        if let localizedError = error as? any LocalizedError,
+           let description = localizedError.errorDescription {
+            return description
+        }
+
+        return String(describing: error)
+    }
 }
+
+

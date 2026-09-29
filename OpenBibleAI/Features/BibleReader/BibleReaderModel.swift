@@ -5,6 +5,7 @@
 //  Created by Miguel Duran on 27-09-26.
 //
 
+import Foundation
 import Observation
 import BibleDomain
 
