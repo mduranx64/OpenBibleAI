@@ -158,6 +158,36 @@ struct StudyAssistantModelTests {
             )
         )
     }
+    
+    @Test
+    func obtainsProviderFromFactoryForQuestion() async throws {
+        let reference = try BibleReference(
+            bookID: "GEN",
+            chapter: 1,
+            verse: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: reference,
+            text: "In the beginning, God created the heavens and the earth."
+        )
+
+        let model = StudyAssistantModel(
+            makeProvider: {
+                ImmediateAIProvider(
+                    answer: "Factory answer."
+                )
+            }
+        )
+
+        await model.ask(
+            verse: verse,
+            question: "Explain this verse."
+        )
+
+        #expect(model.answer == "Factory answer.")
+        #expect(model.state == .completed)
+    }
 
     private func waitUntil(
         _ condition: () -> Bool
@@ -209,6 +239,19 @@ private struct OllamaErrorAIProvider: AIProvider {
                         "model 'missing-model' not found"
                     )
             )
+        }
+    }
+}
+
+private struct ImmediateAIProvider: AIProvider {
+    let answer: String
+
+    func streamResponse(
+        for request: BibleStudyRequest
+    ) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(answer)
+            continuation.finish()
         }
     }
 }

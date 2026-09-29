@@ -24,13 +24,23 @@ final class StudyAssistantModel {
     private(set) var answer = ""
 
     @ObservationIgnored
-    private let provider: any AIProvider
+    private let makeProvider:
+        @MainActor @Sendable () throws -> any AIProvider
     
     @ObservationIgnored
     private var requestGeneration = 0
 
     init(provider: any AIProvider) {
-        self.provider = provider
+        self.makeProvider = {
+            provider
+        }
+    }
+    
+    init(
+        makeProvider: @escaping
+            @MainActor @Sendable () throws -> any AIProvider
+    ) {
+        self.makeProvider = makeProvider
     }
 
     func ask(
@@ -48,8 +58,10 @@ final class StudyAssistantModel {
                 question: question
             )
 
-            state = .streaming
+            let provider = try makeProvider()
 
+            state = .streaming
+ 
             for try await chunk in provider.streamResponse(
                 for: request
             ) {

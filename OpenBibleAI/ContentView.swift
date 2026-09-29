@@ -12,6 +12,7 @@ import BibleAI
 struct ContentView: View {
     let appModel: AppModel
     let studyAssistantModel: StudyAssistantModel
+    let ollamaSettingsModel: OllamaSettingsModel
     
     private static let initialReferences: [BibleReference] = {
         (1...3).map { verse in
@@ -65,6 +66,9 @@ struct ContentView: View {
         .frame(minWidth: 640, minHeight: 480)
         .task {
             await appModel.start()
+        }
+        .task {
+            await ollamaSettingsModel.load()
         }
     }
 }
