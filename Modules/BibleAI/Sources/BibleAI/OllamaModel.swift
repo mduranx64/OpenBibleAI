@@ -19,7 +19,7 @@ public struct OllamaModel:
     public let parameterSize: String?
     public let quantizationLevel: String?
 
-    init(
+    public init(
         name: String,
         size: Int64,
         parameterSize: String?,
