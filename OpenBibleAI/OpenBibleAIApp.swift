@@ -37,13 +37,8 @@ struct OpenBibleAIApp: App {
             }
         )
 
-        let provider = SimulatedAIProvider(
-            chunks: [
-                "This passage presents God ",
-                "as the creator and introduces ",
-                "the beginning of the biblical narrative."
-            ],
-            delay: .milliseconds(250)
+        let provider = OllamaProvider(
+            model: "qwen3.8:latest"
         )
 
         let assistantModel = StudyAssistantModel(
