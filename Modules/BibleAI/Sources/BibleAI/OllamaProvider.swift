@@ -111,10 +111,17 @@ public struct OllamaProvider: AIProvider, Sendable {
         Equatable,
         Sendable
     {
+        case serverUnavailable
         case serverMessage(String)
 
         public var errorDescription: String? {
             switch self {
+            case .serverUnavailable:
+                """
+                Cannot connect to Ollama. \
+                Make sure Ollama is installed and running.
+                """
+
             case let .serverMessage(message):
                 message
             }
@@ -124,6 +131,18 @@ public struct OllamaProvider: AIProvider, Sendable {
     private static func mappedError(
         _ error: any Error
     ) -> any Error {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .cannotConnectToHost,
+                 .cannotFindHost,
+                 .networkConnectionLost:
+                return ProviderError.serverUnavailable
+
+            default:
+                return urlError
+            }
+        }
+
         guard
             let clientError =
                 error as? URLSessionHTTPLineStreamingClient.ClientError

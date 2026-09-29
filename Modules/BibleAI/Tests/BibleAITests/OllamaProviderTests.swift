@@ -156,6 +156,43 @@ struct OllamaProviderTests {
             }
         }
     }
+    
+    @Test
+    func mapsConnectionFailureToServerUnavailable() async throws {
+        let provider = OllamaProvider(
+            baseURL: URL(
+                string: "http://localhost:11434"
+            )!,
+            model: "qwen3.8:latest",
+            client: UnavailableHTTPLineStreamingClient()
+        )
+
+        let reference = try BibleReference(
+            bookID: "GEN",
+            chapter: 1,
+            verse: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: reference,
+            text: "In the beginning, God created the heavens and the earth."
+        )
+
+        let request = try BibleStudyRequest(
+            verse: verse,
+            question: "Explain this verse."
+        )
+
+        await #expect(
+            throws: OllamaProvider.ProviderError.serverUnavailable
+        ) {
+            for try await _ in provider.streamResponse(
+                for: request
+            ) {
+                // No content should be produced.
+            }
+        }
+    }
 }
 
 private actor StubHTTPLineStreamingClient:
@@ -202,5 +239,15 @@ private struct HTTPErrorLineStreamingClient:
                     {"error":"model 'intentionally-missing-model' not found"}
                     """
             )
+    }
+}
+
+private struct UnavailableHTTPLineStreamingClient:
+    HTTPLineStreamingClient
+{
+    func lines(
+        for request: URLRequest
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        throw URLError(.cannotConnectToHost)
     }
 }
