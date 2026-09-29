@@ -23,6 +23,20 @@ public struct OllamaProvider: AIProvider, Sendable {
 
         self.client = client
     }
+    
+    public init(
+        baseURL: URL = URL(
+            string: "http://localhost:11434"
+        )!,
+        model: String
+    ) {
+        requestFactory = OllamaRequestFactory(
+            baseURL: baseURL,
+            model: model
+        )
+
+        client = URLSessionHTTPLineStreamingClient()
+    }
 
     public func streamResponse(
         for studyRequest: BibleStudyRequest
