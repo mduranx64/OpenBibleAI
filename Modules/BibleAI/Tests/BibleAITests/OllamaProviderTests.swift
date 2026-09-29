@@ -68,6 +68,53 @@ struct OllamaProviderTests {
         #expect(recordedRequest?.httpMethod == "POST")
         #expect(recordedRequest?.url?.path == "/api/chat")
     }
+    
+    @Test
+    func reportsErrorMessageFromOllamaStream() async throws {
+        let client = StubHTTPLineStreamingClient(
+            responseLines: [
+                """
+                {"error":"model 'missing-model' not found"}
+                """
+            ]
+        )
+
+        let provider = OllamaProvider(
+            baseURL: URL(
+                string: "http://localhost:11434"
+            )!,
+            model: "missing-model",
+            client: client
+        )
+
+        let reference = try BibleReference(
+            bookID: "GEN",
+            chapter: 1,
+            verse: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: reference,
+            text: "In the beginning, God created the heavens and the earth."
+        )
+
+        let request = try BibleStudyRequest(
+            verse: verse,
+            question: "Explain this verse."
+        )
+
+        await #expect(
+            throws: OllamaProvider.ProviderError.serverMessage(
+                "model 'missing-model' not found"
+            )
+        ) {
+            for try await _ in provider.streamResponse(
+                for: request
+            ) {
+                // No content should be produced.
+            }
+        }
+    }
 }
 
 private actor StubHTTPLineStreamingClient:

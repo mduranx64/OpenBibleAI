@@ -63,9 +63,20 @@ public struct OllamaProvider: AIProvider, Sendable {
                             continue
                         }
 
+                        let data = Data(line.utf8)
+
+                        if let errorResponse = try? decoder.decode(
+                            OllamaErrorResponse.self,
+                            from: data
+                        ) {
+                            throw ProviderError.serverMessage(
+                                errorResponse.error
+                            )
+                        }
+
                         let chunk = try decoder.decode(
                             OllamaChatChunk.self,
-                            from: Data(line.utf8)
+                            from: data
                         )
 
                         if !chunk.message.content.isEmpty {
@@ -94,4 +105,19 @@ public struct OllamaProvider: AIProvider, Sendable {
             }
         }
     }
+    
+    public enum ProviderError:
+        Error,
+        Equatable,
+        Sendable
+    {
+        case serverMessage(String)
+    }
+}
+
+private struct OllamaErrorResponse:
+    Decodable,
+    Sendable
+{
+    let error: String
 }
