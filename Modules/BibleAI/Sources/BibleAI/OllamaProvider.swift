@@ -10,11 +10,13 @@ import Foundation
 public struct OllamaProvider: AIProvider, Sendable {
     private let requestFactory: OllamaRequestFactory
     private let client: any HTTPLineStreamingClient
+    private let startupTimeout: Duration
 
     init(
         baseURL: URL,
         model: String,
-        client: any HTTPLineStreamingClient
+        client: any HTTPLineStreamingClient,
+        startupTimeout: Duration = .seconds(120)
     ) {
         requestFactory = OllamaRequestFactory(
             baseURL: baseURL,
@@ -22,13 +24,15 @@ public struct OllamaProvider: AIProvider, Sendable {
         )
 
         self.client = client
+        self.startupTimeout = startupTimeout
     }
     
     public init(
         baseURL: URL = URL(
             string: "http://localhost:11434"
         )!,
-        model: String
+        model: String,
+        startupTimeout: Duration = .seconds(120)
     ) {
         requestFactory = OllamaRequestFactory(
             baseURL: baseURL,
@@ -36,6 +40,7 @@ public struct OllamaProvider: AIProvider, Sendable {
         )
 
         client = URLSessionHTTPLineStreamingClient()
+        self.startupTimeout = startupTimeout
     }
 
     public func streamResponse(
@@ -48,9 +53,13 @@ public struct OllamaProvider: AIProvider, Sendable {
                         for: studyRequest
                     )
 
-                    let lines = try await client.lines(
-                        for: request
-                    )
+                    let client = self.client
+
+                    let lines = try await withTimeout(
+                        after: startupTimeout
+                    ) {
+                        try await client.lines(for: request)
+                    }
 
                     let decoder = JSONDecoder()
 
@@ -113,6 +122,7 @@ public struct OllamaProvider: AIProvider, Sendable {
     {
         case serverUnavailable
         case serverMessage(String)
+        case requestTimedOut
 
         public var errorDescription: String? {
             switch self {
@@ -121,7 +131,11 @@ public struct OllamaProvider: AIProvider, Sendable {
                 Cannot connect to Ollama. \
                 Make sure Ollama is installed and running.
                 """
-
+            case .requestTimedOut:
+                """
+                Ollama did not respond in time. \
+                The selected model may still be loading.
+                """
             case let .serverMessage(message):
                 message
             }
@@ -131,6 +145,10 @@ public struct OllamaProvider: AIProvider, Sendable {
     private static func mappedError(
         _ error: any Error
     ) -> any Error {
+        if error is OperationTimeoutError {
+            return ProviderError.requestTimedOut
+        }
+        
         if let urlError = error as? URLError {
             switch urlError.code {
             case .cannotConnectToHost,

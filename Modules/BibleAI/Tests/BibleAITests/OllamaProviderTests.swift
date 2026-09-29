@@ -193,6 +193,44 @@ struct OllamaProviderTests {
             }
         }
     }
+    
+    @Test
+    func mapsStartupTimeoutToProviderError() async throws {
+        let provider = OllamaProvider(
+            baseURL: URL(
+                string: "http://localhost:11434"
+            )!,
+            model: "qwen3.8:latest",
+            client: SlowHTTPLineStreamingClient(),
+            startupTimeout: .milliseconds(10)
+        )
+
+        let reference = try BibleReference(
+            bookID: "GEN",
+            chapter: 1,
+            verse: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: reference,
+            text: "In the beginning, God created the heavens and the earth."
+        )
+
+        let request = try BibleStudyRequest(
+            verse: verse,
+            question: "Explain this verse."
+        )
+
+        await #expect(
+            throws: OllamaProvider.ProviderError.requestTimedOut
+        ) {
+            for try await _ in provider.streamResponse(
+                for: request
+            ) {
+                // No content should be produced.
+            }
+        }
+    }
 }
 
 private actor StubHTTPLineStreamingClient:
@@ -249,5 +287,19 @@ private struct UnavailableHTTPLineStreamingClient:
         for request: URLRequest
     ) async throws -> AsyncThrowingStream<String, Error> {
         throw URLError(.cannotConnectToHost)
+    }
+}
+
+private struct SlowHTTPLineStreamingClient:
+    HTTPLineStreamingClient
+{
+    func lines(
+        for request: URLRequest
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        try await Task.sleep(for: .seconds(60))
+
+        return AsyncThrowingStream { continuation in
+            continuation.finish()
+        }
     }
 }
