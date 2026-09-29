@@ -115,6 +115,47 @@ struct OllamaProviderTests {
             }
         }
     }
+    
+    @Test
+    func mapsHTTPErrorBodyToServerMessage() async throws {
+        let client = HTTPErrorLineStreamingClient()
+
+        let provider = OllamaProvider(
+            baseURL: URL(
+                string: "http://localhost:11434"
+            )!,
+            model: "intentionally-missing-model",
+            client: client
+        )
+
+        let reference = try BibleReference(
+            bookID: "GEN",
+            chapter: 1,
+            verse: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: reference,
+            text: "In the beginning, God created the heavens and the earth."
+        )
+
+        let request = try BibleStudyRequest(
+            verse: verse,
+            question: "Explain this verse."
+        )
+
+        await #expect(
+            throws: OllamaProvider.ProviderError.serverMessage(
+                "model 'intentionally-missing-model' not found"
+            )
+        ) {
+            for try await _ in provider.streamResponse(
+                for: request
+            ) {
+                // No content should be produced.
+            }
+        }
+    }
 }
 
 private actor StubHTTPLineStreamingClient:
@@ -144,5 +185,22 @@ private actor StubHTTPLineStreamingClient:
 
     func recordedRequest() -> URLRequest? {
         request
+    }
+}
+
+private struct HTTPErrorLineStreamingClient:
+    HTTPLineStreamingClient
+{
+    func lines(
+        for request: URLRequest
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        throw URLSessionHTTPLineStreamingClient.ClientError
+            .unacceptableStatusCode(
+                404,
+                body:
+                    """
+                    {"error":"model 'intentionally-missing-model' not found"}
+                    """
+            )
     }
 }

@@ -29,8 +29,31 @@ struct URLSessionHTTPLineStreamingClient:
         }
 
         guard 200..<300 ~= httpResponse.statusCode else {
+            let maximumErrorBodySize = 64 * 1_024
+            var errorData = Data()
+
+            for try await byte in bytes {
+                guard errorData.count < maximumErrorBodySize else {
+                    break
+                }
+
+                errorData.append(byte)
+            }
+
+            let body: String?
+
+            if errorData.isEmpty {
+                body = nil
+            } else {
+                body = String(
+                    data: errorData,
+                    encoding: .utf8
+                )
+            }
+
             throw ClientError.unacceptableStatusCode(
-                httpResponse.statusCode
+                httpResponse.statusCode,
+                body: body
             )
         }
 
@@ -61,6 +84,10 @@ struct URLSessionHTTPLineStreamingClient:
 
     enum ClientError: Error, Equatable, Sendable {
         case invalidResponse
-        case unacceptableStatusCode(Int)
+
+        case unacceptableStatusCode(
+            Int,
+            body: String?
+        )
     }
 }

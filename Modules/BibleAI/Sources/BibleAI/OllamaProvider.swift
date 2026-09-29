@@ -96,7 +96,7 @@ public struct OllamaProvider: AIProvider, Sendable {
 
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: error)
+                    continuation.finish(throwing: Self.mappedError(error))
                 }
             }
 
@@ -119,6 +119,33 @@ public struct OllamaProvider: AIProvider, Sendable {
                 message
             }
         }
+    }
+    
+    private static func mappedError(
+        _ error: any Error
+    ) -> any Error {
+        guard
+            let clientError =
+                error as? URLSessionHTTPLineStreamingClient.ClientError
+        else {
+            return error
+        }
+
+        guard case let .unacceptableStatusCode(
+            _,
+            body
+        ) = clientError,
+        let body,
+        let response = try? JSONDecoder().decode(
+            OllamaErrorResponse.self,
+            from: Data(body.utf8)
+        ) else {
+            return clientError
+        }
+
+        return ProviderError.serverMessage(
+            response.error
+        )
     }
 }
 
