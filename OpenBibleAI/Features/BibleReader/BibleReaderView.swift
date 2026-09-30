@@ -85,6 +85,9 @@ struct BibleReaderView: View {
             }
         } content: {
             chapterReadingContent
+                .safeAreaInset(edge: .bottom) {
+                    chapterNavigationControls
+                }
         } detail: {
             if let reference = activeReference {
                 studyContent(for: reference)
@@ -175,8 +178,10 @@ struct BibleReaderView: View {
                         )
 
                         Button {
-                            selectedReference = nil
-                            selectedChapter = selection
+                            selectChapter(
+                                chapter,
+                                in: selectedBookID
+                            )
                         } label: {
                             HStack {
                                 Text("Chapter \(chapter)")
@@ -415,5 +420,69 @@ struct BibleReaderView: View {
                 }
             }
         }
+    }
+    
+    @ViewBuilder
+    private var chapterNavigationControls: some View {
+        if let selectedChapter {
+            let previous = catalogModel.previousChapter(
+                in: selectedChapter.bookID,
+                before: selectedChapter.chapter
+            )
+
+            let next = catalogModel.nextChapter(
+                in: selectedChapter.bookID,
+                after: selectedChapter.chapter
+            )
+
+            HStack {
+                Button {
+                    if let previous {
+                        selectChapter(
+                            previous,
+                            in: selectedChapter.bookID
+                        )
+                    }
+                } label: {
+                    Label(
+                        "Previous Chapter",
+                        systemImage: "chevron.left"
+                    )
+                }
+                .disabled(previous == nil)
+
+                Spacer()
+
+                Button {
+                    if let next {
+                        selectChapter(
+                            next,
+                            in: selectedChapter.bookID
+                        )
+                    }
+                } label: {
+                    Label(
+                        "Next Chapter",
+                        systemImage: "chevron.right"
+                    )
+                }
+                .disabled(next == nil)
+            }
+            .buttonStyle(.bordered)
+            .padding()
+            .background(.bar)
+        }
+    }
+
+    private func selectChapter(
+        _ chapter: Int,
+        in bookID: String
+    ) {
+        selectedReference = nil
+
+        selectedChapter = ChapterSelection(
+            bookID: bookID,
+            chapter: chapter
+        )
     }
 }

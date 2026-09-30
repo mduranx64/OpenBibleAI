@@ -260,6 +260,71 @@ struct BibleCatalogModelTests {
             )
         )
     }
+    
+    @Test
+    func catalogFindsPreviousAndNextAvailableChapters() async throws {
+        let references = [
+            try BibleReference(bookID: "GEN", chapter: 1, verse: 1),
+            try BibleReference(bookID: "GEN", chapter: 3, verse: 1),
+            try BibleReference(bookID: "GEN", chapter: 5, verse: 1)
+        ]
+
+        let verses = try references.map { reference in
+            try BibleVerse(
+                reference: reference,
+                text: "Sample verse."
+            )
+        }
+
+        let repository = InMemoryBibleRepository(verses: verses)
+        let model = BibleCatalogModel(repository: repository)
+
+        await model.loadChapters(in: "GEN")
+
+        #expect(
+            model.previousChapter(in: "GEN", before: 3) == 1
+        )
+
+        #expect(
+            model.nextChapter(in: "GEN", after: 3) == 5
+        )
+    }
+    
+    @Test
+    func catalogReturnsNoDestinationBeyondChapterBoundaries() async throws {
+        let references = [
+            try BibleReference(bookID: "GEN", chapter: 1, verse: 1),
+            try BibleReference(bookID: "GEN", chapter: 3, verse: 1)
+        ]
+
+        let verses = try references.map { reference in
+            try BibleVerse(
+                reference: reference,
+                text: "Sample verse."
+            )
+        }
+
+        let repository = InMemoryBibleRepository(verses: verses)
+        let model = BibleCatalogModel(repository: repository)
+
+        await model.loadChapters(in: "GEN")
+
+        #expect(
+            model.previousChapter(in: "GEN", before: 1) == nil
+        )
+
+        #expect(
+            model.nextChapter(in: "GEN", after: 3) == nil
+        )
+
+        #expect(
+            model.nextChapter(in: "GEN", after: 1) == 3
+        )
+
+        #expect(
+            model.previousChapter(in: "GEN", before: 3) == 1
+        )
+    }
 }
 
 private struct FailingCatalogRepository: BibleCatalogRepository {

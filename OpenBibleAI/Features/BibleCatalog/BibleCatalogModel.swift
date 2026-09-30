@@ -161,5 +161,40 @@ final class BibleCatalogModel {
             )
         }
     }
+    
+    func previousChapter(
+        in bookID: String,
+        before chapter: Int
+    ) -> Int? {
+        guard case let .loaded(loadedBookID, chapters) = chaptersState,
+              loadedBookID == bookID,
+              let index = chapters.firstIndex(of: chapter),
+              index > chapters.startIndex
+        else {
+            return nil
+        }
+
+        return chapters[chapters.index(before: index)]
+    }
+
+    func nextChapter(
+        in bookID: String,
+        after chapter: Int
+    ) -> Int? {
+        guard case let .loaded(loadedBookID, chapters) = chaptersState,
+              loadedBookID == bookID,
+              let index = chapters.firstIndex(of: chapter)
+        else {
+            return nil
+        }
+
+        let nextIndex = chapters.index(after: index)
+
+        guard nextIndex < chapters.endIndex else {
+            return nil
+        }
+
+        return chapters[nextIndex]
+    }
 
 }
