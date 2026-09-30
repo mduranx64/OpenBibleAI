@@ -41,6 +41,14 @@
         "identifier" : "BibleAITests",
         "name" : "BibleAITests"
       }
+    },
+    {
+      "enabled" : false,
+      "target" : {
+        "containerPath" : "container:OpenBibleAI.xcodeproj",
+        "identifier" : "496B16FD30570785008E186E",
+        "name" : "OpenBibleAIUITests"
+      }
     }
   ],
   "version" : 1

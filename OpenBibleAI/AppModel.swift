@@ -19,7 +19,7 @@ final class AppModel {
     enum State {
         case idle
         case loading
-        case ready(BibleReaderModel, BibleCatalogModel)
+        case ready(BibleReaderModel, BibleCatalogModel, BibleReferenceSearchModel)
         case failed(String)
     }
 
@@ -60,7 +60,12 @@ final class AppModel {
                 repository: repositories.catalog
             )
 
-            state = .ready(readerModel, catalogModel)
+            let searchModel = BibleReferenceSearchModel(
+                catalog: repositories.catalog,
+                verses: repositories.verses
+            )
+
+            state = .ready(readerModel, catalogModel, searchModel)
         } catch is CancellationError {
             state = .idle
         } catch {

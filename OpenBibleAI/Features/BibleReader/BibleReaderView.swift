@@ -7,54 +7,48 @@
 
 import SwiftUI
 import BibleDomain
-import OSLog
 
 struct BibleReaderView: View {
     let model: BibleReaderModel
     let studyAssistantModel: StudyAssistantModel
     let catalogModel: BibleCatalogModel
 
-    @State private var selectedBookID: String?
-    @State private var selectedChapter: ChapterSelection?
-    @State private var selectedReference: BibleReference?
+    @State private var navigation: BibleReaderNavigationModel
+    @State private var searchText = ""
 
-    private struct ChapterSelection: Hashable {
-        let bookID: String
-        let chapter: Int
-    }
-    
-    let readingPositionStore: ReadingPositionStore
+    private typealias ChapterSelection = BibleReaderNavigationModel.ChapterSelection
+    private var selectedBookID: String? { navigation.selectedBookID }
+    private var selectedChapter: ChapterSelection? { navigation.selectedChapter }
+    private var selectedReference: BibleReference? { navigation.selectedReference }
+    private var activeReference: BibleReference? { navigation.activeReference }
 
-    @State private var hasAttemptedPositionRestore = false
-
-    private static let logger = Logger(
-        subsystem: "OpenBibleAI",
-        category: "ReadingPosition"
-    )
-    
-    private var activeReference: BibleReference? {
-        guard let selectedReference,
-              let selectedChapter,
-              selectedChapter.bookID == selectedBookID,
-              selectedReference.bookID == selectedChapter.bookID,
-              selectedReference.chapter == selectedChapter.chapter,
-              case let .loaded(bookID, chapter, verses) =
-                catalogModel.versesState,
-              bookID == selectedChapter.bookID,
-              chapter == selectedChapter.chapter,
-              verses.contains(where: {
-                  $0.reference == selectedReference
-              })
-        else {
-            return nil
-        }
-
-        return selectedReference
+    init(
+        model: BibleReaderModel,
+        studyAssistantModel: StudyAssistantModel,
+        catalogModel: BibleCatalogModel,
+        searchModel: BibleReferenceSearchModel,
+        readingPositionStore: ReadingPositionStore
+    ) {
+        self.model = model
+        self.studyAssistantModel = studyAssistantModel
+        self.catalogModel = catalogModel
+        _navigation = State(initialValue: BibleReaderNavigationModel(
+            search: searchModel, catalog: catalogModel, store: readingPositionStore
+        ))
     }
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selectedReference) {
+            List(selection: Binding(
+                get: { selectedReference },
+                set: { reference in
+                    if let reference {
+                        navigation.selectVerse(reference)
+                    } else {
+                        navigation.deselectVerse()
+                    }
+                }
+            )) {
                 Section("Books") {
                     bookCatalogContent
                 }
@@ -67,6 +61,7 @@ struct BibleReaderView: View {
                     verseCatalogContent
                 }
             }
+            .safeAreaInset(edge: .top) { searchControls }
             .navigationTitle("Bible")
             .navigationSplitViewColumnWidth(
                 min: 180,
@@ -75,7 +70,7 @@ struct BibleReaderView: View {
             )
             .task {
                 await catalogModel.loadBooks()
-                await restoreReadingPosition()
+                await navigation.restoreReadingPosition()
             }
             .task(id: selectedBookID) {
                 guard let selectedBookID else {
@@ -113,6 +108,7 @@ struct BibleReaderView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .onDisappear { navigation.cancelSearch() }
         .task(id: activeReference) {
             guard let reference = activeReference else {
                 return
@@ -135,9 +131,7 @@ struct BibleReaderView: View {
             } else {
                 ForEach(books) { book in
                     Button {
-                        selectedReference = nil
-                        selectedChapter = nil
-                        selectedBookID = book.bookID
+                        navigation.selectBook(book.bookID)
                     } label: {
                         HStack {
                             Label(book.name, systemImage: "book.closed")
@@ -293,76 +287,14 @@ struct BibleReaderView: View {
                         systemImage: "book.closed"
                     )
                 } else {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            LazyVStack(
-                                alignment: .leading,
-                                spacing: 12
-                            ) {
-                                Text("Chapter \(chapter)")
-                                    .font(.title.bold())
-                                    .padding(.bottom, 8)
-
-                                ForEach(verses, id: \.reference) { verse in
-                                    Button {
-                                        selectedReference = verse.reference
-                                    } label: {
-                                        HStack(alignment: .top, spacing: 12) {
-                                            Text("\(verse.reference.verse)")
-                                                .font(.caption.bold())
-                                                .foregroundStyle(.secondary)
-                                                .frame(
-                                                    minWidth: 24,
-                                                    alignment: .trailing
-                                                )
-
-                                            Text(verse.text)
-                                                .font(.title3)
-                                                .multilineTextAlignment(.leading)
-                                                .frame(
-                                                    maxWidth: .infinity,
-                                                    alignment: .leading
-                                                )
-                                        }
-                                        .padding(12)
-                                        .background(
-                                            selectedReference == verse.reference
-                                                ? Color.accentColor.opacity(0.12)
-                                                : Color.clear,
-                                            in: RoundedRectangle(
-                                                cornerRadius: 8
-                                            )
-                                        )
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityAddTraits(
-                                        selectedReference == verse.reference
-                                            ? .isSelected
-                                            : []
-                                    )
-                                    .id(verse.reference)
-                                }
-                            }
-                            .frame(maxWidth: 720, alignment: .leading)
-                            .padding(24)
-                            .frame(maxWidth: .infinity)
-                        }
-                        .onChange(
-                            of: selectedReference,
-                            initial: true
-                        ) { _, reference in
-                            guard let reference,
-                                  verses.contains(where: {
-                                      $0.reference == reference
-                                  })
-                            else {
-                                return
-                            }
-
-                            proxy.scrollTo(reference, anchor: .center)
-                        }
-                    }
+                    BibleChapterReadingView(
+                        chapter: chapter,
+                        verses: verses,
+                        selectedReference: selectedReference,
+                        selectionRevision: navigation.selectionRevision,
+                        selectVerse: navigation.selectVerse
+                    )
+                    .id(selectedChapter)
                 }
 
             case let .failed(bookID, chapter, _)
@@ -485,78 +417,47 @@ struct BibleReaderView: View {
         }
     }
 
-    private func selectChapter(
-        _ chapter: Int,
-        in bookID: String
-    ) {
-        selectedReference = nil
-
-        selectedChapter = ChapterSelection(
-            bookID: bookID,
-            chapter: chapter
-        )
-
-        do {
-            let position = try ReadingPosition(
-                bookID: bookID,
-                chapter: chapter
-            )
-
-            try readingPositionStore.save(position)
-        } catch {
-            Self.logger.error(
-                "Could not save reading position: \(String(describing: error))"
-            )
-        }
+    private func selectChapter(_ chapter: Int, in bookID: String) {
+        navigation.selectChapter(chapter, in: bookID)
     }
-    
-    private func restoreReadingPosition() async {
-        guard !hasAttemptedPositionRestore,
-              selectedBookID == nil,
-              selectedChapter == nil,
-              case .loaded = catalogModel.state
-        else {
-            return
+
+    private var searchControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                TextField("John 3:16", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Bible reference")
+                    .accessibilityIdentifier("referenceSearchField")
+                    .onSubmit { submitSearch() }
+                    .onChange(of: searchText) { _, _ in navigation.cancelSearch() }
+                Button("Go", action: submitSearch)
+                    .accessibilityIdentifier("referenceSearchButton")
+                    .disabled(searchText.allSatisfy(\.isWhitespace))
+            }
+            switch navigation.searchModel.state {
+            case .loading:
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("Finding verse…")
+                    Spacer()
+                    Button("Cancel") { navigation.cancelSearch() }
+                }
+            case let .failed(_, message):
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("referenceSearchError")
+            default:
+                Text("Full book name, chapter:verse")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+        .padding(12)
+    }
 
-        do {
-            try Task.checkCancellation()
-
-            guard let position = try readingPositionStore.load() else {
-                hasAttemptedPositionRestore = true
-                return
-            }
-
-            let isAvailable = try await catalogModel.isAvailable(position)
-
-            try Task.checkCancellation()
-
-            guard !hasAttemptedPositionRestore,
-                  selectedBookID == nil,
-                  selectedChapter == nil
-            else {
-                return
-            }
-
-            hasAttemptedPositionRestore = true
-
-            guard isAvailable else {
-                return
-            }
-
-            selectedBookID = position.bookID
-            selectedChapter = ChapterSelection(
-                bookID: position.bookID,
-                chapter: position.chapter
-            )
-        } catch is CancellationError {
-            return
-        } catch {
-            hasAttemptedPositionRestore = true
-
-            Self.logger.notice(
-                "Could not restore reading position: \(String(describing: error))"
-            )
-        }
+    private func submitSearch() {
+        guard !searchText.allSatisfy(\.isWhitespace) else { return }
+        navigation.search(searchText)
     }
 }

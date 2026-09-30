@@ -37,11 +37,12 @@ struct ContentView: View {
             case .idle, .loading:
                 ProgressView("Loading Bible…")
 
-            case let .ready(readerModel, catalogModel):
+            case let .ready(readerModel, catalogModel, searchModel):
                 BibleReaderView(
                     model: readerModel,
                     studyAssistantModel: studyAssistantModel,
                     catalogModel: catalogModel,
+                    searchModel: searchModel,
                     readingPositionStore: readingPositionStore
                 )
 

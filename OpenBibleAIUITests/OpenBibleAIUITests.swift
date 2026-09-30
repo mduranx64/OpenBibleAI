@@ -26,6 +26,12 @@ final class OpenBibleAIUITests: XCTestCase {
     func testExample() throws {
         // UI tests must launch the application that they test.
         let app = XCUIApplication()
+        // Skip macOS's persisted window state so the app reliably opens a
+        // window, even if a prior run's frame was saved off-screen.
+        app.launchArguments += [
+            "-ApplePersistenceIgnoreState", "YES",
+            "-NSQuitAlwaysKeepsWindows", "NO"
+        ]
         app.launch()
 
         // Use XCTAssert and related functions to verify your tests produce the correct results.
@@ -37,7 +43,12 @@ final class OpenBibleAIUITests: XCTestCase {
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
+            let app = XCUIApplication()
+            app.launchArguments += [
+                "-ApplePersistenceIgnoreState", "YES",
+                "-NSQuitAlwaysKeepsWindows", "NO"
+            ]
+            app.launch()
         }
     }
 }

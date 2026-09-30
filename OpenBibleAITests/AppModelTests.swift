@@ -12,6 +12,27 @@ import BibleDomain
 struct AppModelTests {
     @Test
     @MainActor
+    func startCreatesSearchWithSeparateCatalogAndVerseRepositories() async throws {
+        let reference = try BibleReference(bookID: "JOH", chapter: 3, verse: 16)
+        let verse = try BibleVerse(reference: reference, text: "Stored test verse")
+        let catalog = InMemoryBibleRepository(verses: [], books: [
+            try BibleBook(bookID: "JOH", name: "John", canonicalOrder: 43)
+        ])
+        let verses = CachingBibleRepository(base: InMemoryBibleRepository(verses: [verse]))
+        let model = AppModel(loadRepositories: {
+            AppModel.Repositories(verses: verses, catalog: catalog)
+        })
+        await model.start()
+        guard case let .ready(_, _, search) = model.state else {
+            Issue.record("Expected search to be composed with the loaded repositories")
+            return
+        }
+        await search.search("John 3:16")
+        #expect(search.state == .loaded(query: "John 3:16", verse: verse))
+    }
+
+    @Test
+    @MainActor
     func startCreatesReaderWithLoadedRepository() async throws {
         let reference = try BibleReference(
             bookID: "GEN",
@@ -43,7 +64,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(readerModel, _) = appModel.state else {
+        guard case let .ready(readerModel, _, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -122,7 +143,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(_, catalogModel) = appModel.state else {
+        guard case let .ready(_, catalogModel, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
