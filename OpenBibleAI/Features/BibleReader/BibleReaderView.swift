@@ -84,33 +84,10 @@ struct BibleReaderView: View {
                 )
             }
         } content: {
-            if let reference = activeReference {
-                verseContent(for: reference)
-                    .task(id: reference) {
-                        await model.load(reference: reference)
-                    }
-            } else {
-                ContentUnavailableView(
-                    "Select a Verse",
-                    systemImage: "book.closed",
-                    description: Text(
-                        "Choose a book, chapter, and verse."
-                    )
-                )
-            }
+            chapterReadingContent
         } detail: {
-            if let reference = activeReference,
-               case let .loaded(verse) = model.state,
-               verse.reference == reference {
-                StudyAssistantView(
-                    model: studyAssistantModel,
-                    verse: verse
-                )
-                .id(verse.reference)
-                .navigationSplitViewColumnWidth(
-                    min: 320,
-                    ideal: 400
-                )
+            if let reference = activeReference {
+                studyContent(for: reference)
             } else {
                 ContentUnavailableView(
                     "AI Study Assistant",
@@ -122,58 +99,12 @@ struct BibleReaderView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-    }
-
-    @ViewBuilder
-    private func verseContent(
-        for reference: BibleReference
-    ) -> some View {
-        switch model.state {
-        case .idle, .loading:
-            ProgressView("Loading verse…")
-
-        case let .loaded(verse):
-            if verse.reference == reference {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(
-                        "\(verse.reference.bookID) " +
-                        "\(verse.reference.chapter):" +
-                        "\(verse.reference.verse)"
-                    )
-                    .font(.title2.bold())
-
-                    Text(verse.text)
-                        .font(.title3)
-                        .textSelection(.enabled)
-                }
-                .frame(
-                    maxWidth: 600,
-                    maxHeight: .infinity,
-                    alignment: .topLeading
-                )
-                .padding(32)
-            } else {
-                ProgressView("Loading verse…")
+        .task(id: activeReference) {
+            guard let reference = activeReference else {
+                return
             }
 
-        case let .failed(message):
-            VStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.largeTitle)
-                    .foregroundStyle(.orange)
-
-                Text("Couldn’t load the verse")
-                    .font(.headline)
-
-                Text(message)
-                    .foregroundStyle(.secondary)
-
-                Button("Retry") {
-                    Task {
-                        await model.load(reference: reference)
-                    }
-                }
-            }
+            await model.load(reference: reference)
         }
     }
     
@@ -330,6 +261,159 @@ struct BibleReaderView: View {
         } else {
             Text("Select a chapter")
                 .foregroundStyle(.secondary)
+        }
+    }
+    
+    @ViewBuilder
+    private var chapterReadingContent: some View {
+        if let selectedChapter {
+            switch catalogModel.versesState {
+            case let .loaded(bookID, chapter, verses)
+                where bookID == selectedChapter.bookID
+                    && chapter == selectedChapter.chapter:
+                if verses.isEmpty {
+                    ContentUnavailableView(
+                        "No Verses Available",
+                        systemImage: "book.closed"
+                    )
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(
+                                alignment: .leading,
+                                spacing: 12
+                            ) {
+                                Text("Chapter \(chapter)")
+                                    .font(.title.bold())
+                                    .padding(.bottom, 8)
+
+                                ForEach(verses, id: \.reference) { verse in
+                                    Button {
+                                        selectedReference = verse.reference
+                                    } label: {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Text("\(verse.reference.verse)")
+                                                .font(.caption.bold())
+                                                .foregroundStyle(.secondary)
+                                                .frame(
+                                                    minWidth: 24,
+                                                    alignment: .trailing
+                                                )
+
+                                            Text(verse.text)
+                                                .font(.title3)
+                                                .multilineTextAlignment(.leading)
+                                                .frame(
+                                                    maxWidth: .infinity,
+                                                    alignment: .leading
+                                                )
+                                        }
+                                        .padding(12)
+                                        .background(
+                                            selectedReference == verse.reference
+                                                ? Color.accentColor.opacity(0.12)
+                                                : Color.clear,
+                                            in: RoundedRectangle(
+                                                cornerRadius: 8
+                                            )
+                                        )
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityAddTraits(
+                                        selectedReference == verse.reference
+                                            ? .isSelected
+                                            : []
+                                    )
+                                    .id(verse.reference)
+                                }
+                            }
+                            .frame(maxWidth: 720, alignment: .leading)
+                            .padding(24)
+                            .frame(maxWidth: .infinity)
+                        }
+                        .onChange(
+                            of: selectedReference,
+                            initial: true
+                        ) { _, reference in
+                            guard let reference,
+                                  verses.contains(where: {
+                                      $0.reference == reference
+                                  })
+                            else {
+                                return
+                            }
+
+                            proxy.scrollTo(reference, anchor: .center)
+                        }
+                    }
+                }
+
+            case let .failed(bookID, chapter, _)
+                where bookID == selectedChapter.bookID
+                    && chapter == selectedChapter.chapter:
+                VStack(spacing: 12) {
+                    Text("Couldn’t load this chapter")
+                        .font(.headline)
+
+                    Button("Retry") {
+                        Task {
+                            await catalogModel.loadVerses(
+                                in: selectedChapter.bookID,
+                                chapter: selectedChapter.chapter
+                            )
+                        }
+                    }
+                }
+
+            default:
+                ProgressView("Loading chapter…")
+            }
+        } else {
+            ContentUnavailableView(
+                "Select a Chapter",
+                systemImage: "book.closed",
+                description: Text(
+                    "Choose a book and chapter to begin reading."
+                )
+            )
+        }
+    }
+    
+    @ViewBuilder
+    private func studyContent(
+        for reference: BibleReference
+    ) -> some View {
+        switch model.state {
+        case .idle, .loading:
+            ProgressView("Loading selected verse…")
+
+        case let .loaded(verse):
+            if verse.reference == reference {
+                StudyAssistantView(
+                    model: studyAssistantModel,
+                    verse: verse
+                )
+                .id(verse.reference)
+                .navigationSplitViewColumnWidth(
+                    min: 320,
+                    ideal: 400
+                )
+            } else {
+                ProgressView("Loading selected verse…")
+            }
+
+        case .failed:
+            VStack(spacing: 12) {
+                Text("Couldn’t load the selected verse")
+                    .font(.headline)
+
+                Button("Retry") {
+                    Task {
+                        await model.load(reference: reference)
+                    }
+                }
+            }
         }
     }
 }
