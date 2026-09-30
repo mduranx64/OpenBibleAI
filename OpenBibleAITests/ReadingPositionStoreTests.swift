@@ -14,14 +14,7 @@ import Testing
 struct ReadingPositionStoreTests {
     @Test
     func savedPositionCanBeLoadedByAnotherStore() throws {
-        let suiteName = "ReadingPositionStoreTests.\(UUID())"
-        let defaults = try #require(
-            UserDefaults(suiteName: suiteName)
-        )
-
-        defer {
-            defaults.removePersistentDomain(forName: suiteName)
-        }
+        let defaults = InMemoryReadingPositionStorage()
 
         let expectedPosition = try ReadingPosition(
             bookID: "GEN",
@@ -39,17 +32,10 @@ struct ReadingPositionStoreTests {
 
         #expect(restoredPosition == expectedPosition)
     }
-    
+
     @Test
     func loadReturnsNilWhenNoPositionHasBeenSaved() throws {
-        let suiteName = "ReadingPositionStoreTests.\(UUID())"
-        let defaults = try #require(
-            UserDefaults(suiteName: suiteName)
-        )
-
-        defer {
-            defaults.removePersistentDomain(forName: suiteName)
-        }
+        let defaults = InMemoryReadingPositionStorage()
 
         let store = ReadingPositionStore(defaults: defaults)
 
@@ -57,17 +43,10 @@ struct ReadingPositionStoreTests {
 
         #expect(position == nil)
     }
-    
+
     @Test
     func savingNewPositionReplacesPreviousPosition() throws {
-        let suiteName = "ReadingPositionStoreTests.\(UUID())"
-        let defaults = try #require(
-            UserDefaults(suiteName: suiteName)
-        )
-
-        defer {
-            defaults.removePersistentDomain(forName: suiteName)
-        }
+        let defaults = InMemoryReadingPositionStorage()
 
         let store = ReadingPositionStore(defaults: defaults)
 
@@ -89,17 +68,10 @@ struct ReadingPositionStoreTests {
 
         #expect(restoredPosition == latestPosition)
     }
-    
+
     @Test
     func loadRejectsSavedPositionWithInvalidChapter() throws {
-        let suiteName = "ReadingPositionStoreTests.\(UUID())"
-        let defaults = try #require(
-            UserDefaults(suiteName: suiteName)
-        )
-
-        defer {
-            defaults.removePersistentDomain(forName: suiteName)
-        }
+        let defaults = InMemoryReadingPositionStorage()
 
         let json = """
         {
@@ -120,5 +92,19 @@ struct ReadingPositionStoreTests {
         ) {
             try store.load()
         }
+    }
+}
+
+/// An in-memory `ReadingPositionStorage` so tests don't touch the real
+/// `UserDefaults` or leave suite files behind on disk.
+private final class InMemoryReadingPositionStorage: ReadingPositionStorage {
+    private var storage: [String: Any] = [:]
+
+    func data(forKey defaultName: String) -> Data? {
+        storage[defaultName] as? Data
+    }
+
+    func set(_ value: Any?, forKey defaultName: String) {
+        storage[defaultName] = value
     }
 }

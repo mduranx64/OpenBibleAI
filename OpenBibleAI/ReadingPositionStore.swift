@@ -11,9 +11,9 @@ import Foundation
 final class ReadingPositionStore {
     private static let storageKey = "bible.readingPosition"
 
-    private let defaults: UserDefaults
+    private let defaults: any ReadingPositionStorage
 
-    init(defaults: UserDefaults) {
+    init(defaults: any ReadingPositionStorage) {
         self.defaults = defaults
     }
 

@@ -52,7 +52,7 @@ struct OpenBibleAIApp: App {
         )
         
         self.readingPositionStore = ReadingPositionStore(
-            defaults: .standard
+            defaults: UserDefaults.standard
         )
         
         let catalog = OllamaModelCatalog()

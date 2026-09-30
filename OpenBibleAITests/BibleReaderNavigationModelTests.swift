@@ -19,10 +19,7 @@ struct BibleReaderNavigationModelTests {
     private func withStore(
         _ body: (ReadingPositionStore) async throws -> Void
     ) async throws {
-        let suite = "BibleReaderNavigationTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        try await body(ReadingPositionStore(defaults: defaults))
+        try await body(ReadingPositionStore(defaults: InMemoryReadingPositionStorage()))
     }
 
     @Test func searchSelectsBookChapterVerseAndSavesOnlyChapter() async throws {
@@ -186,6 +183,20 @@ struct BibleReaderNavigationModelTests {
             #expect(model.selectedReference == nil)
             #expect(try store.load() == ReadingPosition(bookID: "JOH", chapter: 3))
         }
+    }
+}
+
+/// An in-memory `ReadingPositionStorage` so tests don't touch the real
+/// `UserDefaults` or leave suite files behind on disk.
+private final class InMemoryReadingPositionStorage: ReadingPositionStorage {
+    private var storage: [String: Any] = [:]
+
+    func data(forKey defaultName: String) -> Data? {
+        storage[defaultName] as? Data
+    }
+
+    func set(_ value: Any?, forKey defaultName: String) {
+        storage[defaultName] = value
     }
 }
 
