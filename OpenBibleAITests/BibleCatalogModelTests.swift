@@ -199,6 +199,67 @@ struct BibleCatalogModelTests {
             )
         )
     }
+    
+    @Test
+    func latestChapterSelectionWinsWhenVerseLoadsFinishOutOfOrder() async throws {
+        let firstChapterVerse = try BibleVerse(
+            reference: BibleReference(
+                bookID: "GEN",
+                chapter: 1,
+                verse: 1
+            ),
+            text: "First chapter."
+        )
+
+        let secondChapterVerse = try BibleVerse(
+            reference: BibleReference(
+                bookID: "GEN",
+                chapter: 2,
+                verse: 1
+            ),
+            text: "Second chapter."
+        )
+
+        let repository = OutOfOrderVerseCatalogRepository(
+            firstChapterVerse: firstChapterVerse,
+            secondChapterVerse: secondChapterVerse
+        )
+        let model = BibleCatalogModel(repository: repository)
+
+        let firstTask = Task { @MainActor in
+            await model.loadVerses(in: "GEN", chapter: 1)
+        }
+
+        await repository.waitUntilFirstRequestStarts()
+
+        #expect(
+            model.versesState == .loading(
+                bookID: "GEN",
+                chapter: 1
+            )
+        )
+
+        await model.loadVerses(in: "GEN", chapter: 2)
+
+        #expect(
+            model.versesState == .loaded(
+                bookID: "GEN",
+                chapter: 2,
+                verses: [secondChapterVerse]
+            )
+        )
+
+        await repository.completeFirstRequest()
+        await firstTask.value
+
+        #expect(
+            model.versesState == .loaded(
+                bookID: "GEN",
+                chapter: 2,
+                verses: [secondChapterVerse]
+            )
+        )
+    }
 }
 
 private struct FailingCatalogRepository: BibleCatalogRepository {
@@ -340,6 +401,73 @@ private actor OutOfOrderChapterRepository: BibleCatalogRepository {
         in bookID: String,
         chapter: Int
     ) async throws -> [BibleVerse] {
+        throw StubError.unexpectedCall
+    }
+
+    private enum StubError: Error {
+        case unexpectedCall
+    }
+}
+
+private actor OutOfOrderVerseCatalogRepository:
+    BibleCatalogRepository
+{
+    private let firstChapterVerse: BibleVerse
+    private let secondChapterVerse: BibleVerse
+
+    private var firstContinuation:
+        CheckedContinuation<[BibleVerse], Never>?
+
+    init(
+        firstChapterVerse: BibleVerse,
+        secondChapterVerse: BibleVerse
+    ) {
+        self.firstChapterVerse = firstChapterVerse
+        self.secondChapterVerse = secondChapterVerse
+    }
+
+    func verses(
+        in bookID: String,
+        chapter: Int
+    ) async throws -> [BibleVerse] {
+        guard bookID == "GEN" else {
+            throw StubError.unexpectedCall
+        }
+
+        switch chapter {
+        case 1:
+            return await withCheckedContinuation { continuation in
+                firstContinuation = continuation
+            }
+
+        case 2:
+            return [secondChapterVerse]
+
+        default:
+            throw StubError.unexpectedCall
+        }
+    }
+
+    func waitUntilFirstRequestStarts() async {
+        while firstContinuation == nil {
+            await Task.yield()
+        }
+    }
+
+    func completeFirstRequest() {
+        guard let continuation = firstContinuation else {
+            return
+        }
+
+        firstContinuation = nil
+        continuation.resume(returning: [firstChapterVerse])
+    }
+
+    func books() async throws -> [BibleBook] {
+        throw StubError.unexpectedCall
+    }
+
+    func chapters(in bookID: String) async throws -> [Int] {
         throw StubError.unexpectedCall
     }
 

@@ -20,22 +20,27 @@ struct OpenBibleAIApp: App {
     init() {
         let appModel = AppModel(
             loadRepositories: {
-                guard let fileURL = Bundle.main.url(
-                    forResource: "sample-bible",
+                guard let booksURL = Bundle.main.url(
+                    forResource: "kjv-books",
                     withExtension: "json"
                 ) else {
-                    throw LaunchError.missingBibleResource
+                    throw LaunchError.missingResource("kjv-books.json")
                 }
 
-                let genesis = try BibleBook(
-                    bookID: "GEN",
-                    name: "Genesis",
-                    canonicalOrder: 1
+                guard let versesURL = Bundle.main.url(
+                    forResource: "kjv-verses",
+                    withExtension: "json"
+                ) else {
+                    throw LaunchError.missingResource("kjv-verses.json")
+                }
+
+                let catalog = try await JSONBibleBookCatalog.load(
+                    from: booksURL
                 )
 
                 let repository = try await JSONBibleRepository.load(
-                    from: fileURL,
-                    books: [genesis]
+                    from: versesURL,
+                    books: catalog.books
                 )
 
                 return AppModel.Repositories(
@@ -95,7 +100,7 @@ struct OpenBibleAIApp: App {
 }
 
 private enum LaunchError: Error, Sendable {
-    case missingBibleResource
+    case missingResource(String)
 }
 
 private enum AIConfigurationError:

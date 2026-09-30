@@ -1,0 +1,332 @@
+[
+  {
+    "book_id": "GEN",
+    "name": "Genesis",
+    "canonical_order": 1
+  },
+  {
+    "book_id": "EXO",
+    "name": "Exodus",
+    "canonical_order": 2
+  },
+  {
+    "book_id": "LEV",
+    "name": "Leviticus",
+    "canonical_order": 3
+  },
+  {
+    "book_id": "NUM",
+    "name": "Numbers",
+    "canonical_order": 4
+  },
+  {
+    "book_id": "DEU",
+    "name": "Deuteronomy",
+    "canonical_order": 5
+  },
+  {
+    "book_id": "JOS",
+    "name": "Joshua",
+    "canonical_order": 6
+  },
+  {
+    "book_id": "JDG",
+    "name": "Judges",
+    "canonical_order": 7
+  },
+  {
+    "book_id": "RUT",
+    "name": "Ruth",
+    "canonical_order": 8
+  },
+  {
+    "book_id": "1SA",
+    "name": "1 Samuel",
+    "canonical_order": 9
+  },
+  {
+    "book_id": "2SA",
+    "name": "2 Samuel",
+    "canonical_order": 10
+  },
+  {
+    "book_id": "1KI",
+    "name": "1 Kings",
+    "canonical_order": 11
+  },
+  {
+    "book_id": "2KI",
+    "name": "2 Kings",
+    "canonical_order": 12
+  },
+  {
+    "book_id": "1CH",
+    "name": "1 Chronicles",
+    "canonical_order": 13
+  },
+  {
+    "book_id": "2CH",
+    "name": "2 Chronicles",
+    "canonical_order": 14
+  },
+  {
+    "book_id": "EZR",
+    "name": "Ezra",
+    "canonical_order": 15
+  },
+  {
+    "book_id": "NEH",
+    "name": "Nehemiah",
+    "canonical_order": 16
+  },
+  {
+    "book_id": "EST",
+    "name": "Esther",
+    "canonical_order": 17
+  },
+  {
+    "book_id": "JOB",
+    "name": "Job",
+    "canonical_order": 18
+  },
+  {
+    "book_id": "PSA",
+    "name": "Psalms",
+    "canonical_order": 19
+  },
+  {
+    "book_id": "PRO",
+    "name": "Proverbs",
+    "canonical_order": 20
+  },
+  {
+    "book_id": "ECC",
+    "name": "Ecclesiastes",
+    "canonical_order": 21
+  },
+  {
+    "book_id": "SOL",
+    "name": "Song of Solomon",
+    "canonical_order": 22
+  },
+  {
+    "book_id": "ISA",
+    "name": "Isaiah",
+    "canonical_order": 23
+  },
+  {
+    "book_id": "JER",
+    "name": "Jeremiah",
+    "canonical_order": 24
+  },
+  {
+    "book_id": "LAM",
+    "name": "Lamentations",
+    "canonical_order": 25
+  },
+  {
+    "book_id": "EZE",
+    "name": "Ezekiel",
+    "canonical_order": 26
+  },
+  {
+    "book_id": "DAN",
+    "name": "Daniel",
+    "canonical_order": 27
+  },
+  {
+    "book_id": "HOS",
+    "name": "Hosea",
+    "canonical_order": 28
+  },
+  {
+    "book_id": "JOE",
+    "name": "Joel",
+    "canonical_order": 29
+  },
+  {
+    "book_id": "AMO",
+    "name": "Amos",
+    "canonical_order": 30
+  },
+  {
+    "book_id": "OBA",
+    "name": "Obadiah",
+    "canonical_order": 31
+  },
+  {
+    "book_id": "JON",
+    "name": "Jonah",
+    "canonical_order": 32
+  },
+  {
+    "book_id": "MIC",
+    "name": "Micah",
+    "canonical_order": 33
+  },
+  {
+    "book_id": "NAH",
+    "name": "Nahum",
+    "canonical_order": 34
+  },
+  {
+    "book_id": "HAB",
+    "name": "Habakkuk",
+    "canonical_order": 35
+  },
+  {
+    "book_id": "ZEP",
+    "name": "Zephaniah",
+    "canonical_order": 36
+  },
+  {
+    "book_id": "HAG",
+    "name": "Haggai",
+    "canonical_order": 37
+  },
+  {
+    "book_id": "ZEC",
+    "name": "Zechariah",
+    "canonical_order": 38
+  },
+  {
+    "book_id": "MAL",
+    "name": "Malachi",
+    "canonical_order": 39
+  },
+  {
+    "book_id": "MAT",
+    "name": "Matthew",
+    "canonical_order": 40
+  },
+  {
+    "book_id": "MAR",
+    "name": "Mark",
+    "canonical_order": 41
+  },
+  {
+    "book_id": "LUK",
+    "name": "Luke",
+    "canonical_order": 42
+  },
+  {
+    "book_id": "JOH",
+    "name": "John",
+    "canonical_order": 43
+  },
+  {
+    "book_id": "ACT",
+    "name": "Acts",
+    "canonical_order": 44
+  },
+  {
+    "book_id": "ROM",
+    "name": "Romans",
+    "canonical_order": 45
+  },
+  {
+    "book_id": "1CO",
+    "name": "1 Corinthians",
+    "canonical_order": 46
+  },
+  {
+    "book_id": "2CO",
+    "name": "2 Corinthians",
+    "canonical_order": 47
+  },
+  {
+    "book_id": "GAL",
+    "name": "Galatians",
+    "canonical_order": 48
+  },
+  {
+    "book_id": "EPH",
+    "name": "Ephesians",
+    "canonical_order": 49
+  },
+  {
+    "book_id": "PHI",
+    "name": "Philippians",
+    "canonical_order": 50
+  },
+  {
+    "book_id": "COL",
+    "name": "Colossians",
+    "canonical_order": 51
+  },
+  {
+    "book_id": "1TH",
+    "name": "1 Thessalonians",
+    "canonical_order": 52
+  },
+  {
+    "book_id": "2TH",
+    "name": "2 Thessalonians",
+    "canonical_order": 53
+  },
+  {
+    "book_id": "1TI",
+    "name": "1 Timothy",
+    "canonical_order": 54
+  },
+  {
+    "book_id": "2TI",
+    "name": "2 Timothy",
+    "canonical_order": 55
+  },
+  {
+    "book_id": "TIT",
+    "name": "Titus",
+    "canonical_order": 56
+  },
+  {
+    "book_id": "PHM",
+    "name": "Philemon",
+    "canonical_order": 57
+  },
+  {
+    "book_id": "HEB",
+    "name": "Hebrews",
+    "canonical_order": 58
+  },
+  {
+    "book_id": "JAM",
+    "name": "James",
+    "canonical_order": 59
+  },
+  {
+    "book_id": "1PE",
+    "name": "1 Peter",
+    "canonical_order": 60
+  },
+  {
+    "book_id": "2PE",
+    "name": "2 Peter",
+    "canonical_order": 61
+  },
+  {
+    "book_id": "1JO",
+    "name": "1 John",
+    "canonical_order": 62
+  },
+  {
+    "book_id": "2JO",
+    "name": "2 John",
+    "canonical_order": 63
+  },
+  {
+    "book_id": "3JO",
+    "name": "3 John",
+    "canonical_order": 64
+  },
+  {
+    "book_id": "JUD",
+    "name": "Jude",
+    "canonical_order": 65
+  },
+  {
+    "book_id": "REV",
+    "name": "Revelation",
+    "canonical_order": 66
+  }
+]
