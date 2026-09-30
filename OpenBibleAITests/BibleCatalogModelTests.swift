@@ -325,6 +325,81 @@ struct BibleCatalogModelTests {
             model.previousChapter(in: "GEN", before: 3) == 1
         )
     }
+    
+    @Test
+    func catalogRecognizesAvailableReadingPosition() async throws {
+        let genesis = try BibleBook(
+            bookID: "GEN",
+            name: "Genesis",
+            canonicalOrder: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: BibleReference(
+                bookID: "GEN",
+                chapter: 3,
+                verse: 1
+            ),
+            text: "Sample verse."
+        )
+
+        let repository = InMemoryBibleRepository(
+            verses: [verse],
+            books: [genesis]
+        )
+
+        let model = BibleCatalogModel(repository: repository)
+
+        let position = try ReadingPosition(
+            bookID: "GEN",
+            chapter: 3
+        )
+
+        let isAvailable = try await model.isAvailable(position)
+
+        #expect(isAvailable)
+    }
+    
+    @Test
+    func catalogRejectsUnavailableReadingPositions() async throws {
+        let genesis = try BibleBook(
+            bookID: "GEN",
+            name: "Genesis",
+            canonicalOrder: 1
+        )
+
+        let verse = try BibleVerse(
+            reference: BibleReference(
+                bookID: "GEN",
+                chapter: 3,
+                verse: 1
+            ),
+            text: "Sample verse."
+        )
+
+        let repository = InMemoryBibleRepository(
+            verses: [verse],
+            books: [genesis]
+        )
+
+        let model = BibleCatalogModel(repository: repository)
+
+        let missingBook = try ReadingPosition(
+            bookID: "EXO",
+            chapter: 3
+        )
+
+        let missingChapter = try ReadingPosition(
+            bookID: "GEN",
+            chapter: 4
+        )
+
+        let bookIsAvailable = try await model.isAvailable(missingBook)
+        let chapterIsAvailable = try await model.isAvailable(missingChapter)
+
+        #expect(!bookIsAvailable)
+        #expect(!chapterIsAvailable)
+    }
 }
 
 private struct FailingCatalogRepository: BibleCatalogRepository {

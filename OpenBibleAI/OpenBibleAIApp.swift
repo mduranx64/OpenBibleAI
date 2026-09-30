@@ -15,6 +15,7 @@ struct OpenBibleAIApp: App {
     @State private var appModel: AppModel
     @State private var studyAssistantModel: StudyAssistantModel
     @State private var ollamaSettingsModel: OllamaSettingsModel
+    private let readingPositionStore: ReadingPositionStore
 
     @MainActor
     init() {
@@ -48,6 +49,10 @@ struct OpenBibleAIApp: App {
                     catalog: repository
                 )
             }
+        )
+        
+        self.readingPositionStore = ReadingPositionStore(
+            defaults: .standard
         )
         
         let catalog = OllamaModelCatalog()
@@ -87,7 +92,8 @@ struct OpenBibleAIApp: App {
             ContentView(
                 appModel: appModel,
                 studyAssistantModel: studyAssistantModel,
-                ollamaSettingsModel: ollamaSettingsModel
+                ollamaSettingsModel: ollamaSettingsModel,
+                readingPositionStore: readingPositionStore
             )
         }
         

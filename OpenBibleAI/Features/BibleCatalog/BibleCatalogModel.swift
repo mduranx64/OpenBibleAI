@@ -197,4 +197,27 @@ final class BibleCatalogModel {
         return chapters[nextIndex]
     }
 
+    func isAvailable(
+        _ position: ReadingPosition
+    ) async throws -> Bool {
+        try Task.checkCancellation()
+
+        let books = try await repository.books()
+
+        try Task.checkCancellation()
+
+        guard books.contains(where: {
+            $0.bookID == position.bookID
+        }) else {
+            return false
+        }
+
+        let chapters = try await repository.chapters(
+            in: position.bookID
+        )
+
+        try Task.checkCancellation()
+
+        return chapters.contains(position.chapter)
+    }
 }

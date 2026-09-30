@@ -7,6 +7,7 @@
 
 import SwiftUI
 import BibleDomain
+import OSLog
 
 struct BibleReaderView: View {
     let model: BibleReaderModel
@@ -21,6 +22,15 @@ struct BibleReaderView: View {
         let bookID: String
         let chapter: Int
     }
+    
+    let readingPositionStore: ReadingPositionStore
+
+    @State private var hasAttemptedPositionRestore = false
+
+    private static let logger = Logger(
+        subsystem: "OpenBibleAI",
+        category: "ReadingPosition"
+    )
     
     private var activeReference: BibleReference? {
         guard let selectedReference,
@@ -65,6 +75,7 @@ struct BibleReaderView: View {
             )
             .task {
                 await catalogModel.loadBooks()
+                await restoreReadingPosition()
             }
             .task(id: selectedBookID) {
                 guard let selectedBookID else {
@@ -484,5 +495,68 @@ struct BibleReaderView: View {
             bookID: bookID,
             chapter: chapter
         )
+
+        do {
+            let position = try ReadingPosition(
+                bookID: bookID,
+                chapter: chapter
+            )
+
+            try readingPositionStore.save(position)
+        } catch {
+            Self.logger.error(
+                "Could not save reading position: \(String(describing: error))"
+            )
+        }
+    }
+    
+    private func restoreReadingPosition() async {
+        guard !hasAttemptedPositionRestore,
+              selectedBookID == nil,
+              selectedChapter == nil,
+              case .loaded = catalogModel.state
+        else {
+            return
+        }
+
+        do {
+            try Task.checkCancellation()
+
+            guard let position = try readingPositionStore.load() else {
+                hasAttemptedPositionRestore = true
+                return
+            }
+
+            let isAvailable = try await catalogModel.isAvailable(position)
+
+            try Task.checkCancellation()
+
+            guard !hasAttemptedPositionRestore,
+                  selectedBookID == nil,
+                  selectedChapter == nil
+            else {
+                return
+            }
+
+            hasAttemptedPositionRestore = true
+
+            guard isAvailable else {
+                return
+            }
+
+            selectedBookID = position.bookID
+            selectedChapter = ChapterSelection(
+                bookID: position.bookID,
+                chapter: position.chapter
+            )
+        } catch is CancellationError {
+            return
+        } catch {
+            hasAttemptedPositionRestore = true
+
+            Self.logger.notice(
+                "Could not restore reading position: \(String(describing: error))"
+            )
+        }
     }
 }

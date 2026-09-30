@@ -13,6 +13,7 @@ struct ContentView: View {
     let appModel: AppModel
     let studyAssistantModel: StudyAssistantModel
     let ollamaSettingsModel: OllamaSettingsModel
+    let readingPositionStore: ReadingPositionStore
     
     private static let initialReferences: [BibleReference] = {
         (1...3).map { verse in
@@ -40,7 +41,8 @@ struct ContentView: View {
                 BibleReaderView(
                     model: readerModel,
                     studyAssistantModel: studyAssistantModel,
-                    catalogModel: catalogModel
+                    catalogModel: catalogModel,
+                    readingPositionStore: readingPositionStore
                 )
 
             case let .failed(message):
