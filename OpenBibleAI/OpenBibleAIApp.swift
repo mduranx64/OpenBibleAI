@@ -19,7 +19,7 @@ struct OpenBibleAIApp: App {
     @MainActor
     init() {
         let appModel = AppModel(
-            loadRepository: {
+            loadRepositories: {
                 guard let fileURL = Bundle.main.url(
                     forResource: "sample-bible",
                     withExtension: "json"
@@ -27,13 +27,20 @@ struct OpenBibleAIApp: App {
                     throw LaunchError.missingBibleResource
                 }
 
-                let repository =
-                    try await JSONBibleRepository.load(
-                        from: fileURL
-                    )
+                let genesis = try BibleBook(
+                    bookID: "GEN",
+                    name: "Genesis",
+                    canonicalOrder: 1
+                )
 
-                return CachingBibleRepository(
-                    base: repository
+                let repository = try await JSONBibleRepository.load(
+                    from: fileURL,
+                    books: [genesis]
+                )
+
+                return AppModel.Repositories(
+                    verses: CachingBibleRepository(base: repository),
+                    catalog: repository
                 )
             }
         )

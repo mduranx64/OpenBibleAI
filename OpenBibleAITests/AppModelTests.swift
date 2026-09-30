@@ -28,8 +28,11 @@ struct AppModelTests {
         )
 
         let appModel = AppModel(
-            loadRepository: {
-                repository
+            loadRepositories: {
+                AppModel.Repositories(
+                    verses: repository,
+                    catalog: repository
+                )
             }
         )
 
@@ -40,7 +43,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(readerModel) = appModel.state else {
+        guard case let .ready(readerModel, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -73,8 +76,13 @@ struct AppModelTests {
             repository: repository
         )
         let appModel = AppModel(
-            loadRepository: {
-                try await loader.load()
+            loadRepositories: {
+                let repository = try await loader.load()
+
+                return AppModel.Repositories(
+                    verses: repository,
+                    catalog: repository
+                )
             }
         )
 
@@ -88,17 +96,58 @@ struct AppModelTests {
 
         #expect(loadCount == 1)
     }
+    
+    @Test
+    @MainActor
+    func startCreatesCatalogWithLoadedRepository() async throws {
+        let genesis = try BibleBook(
+            bookID: "GEN",
+            name: "Genesis",
+            canonicalOrder: 1
+        )
+
+        let repository = InMemoryBibleRepository(
+            verses: [],
+            books: [genesis]
+        )
+
+        let appModel = AppModel(
+            loadRepositories: {
+                AppModel.Repositories(
+                    verses: CachingBibleRepository(base: repository),
+                    catalog: repository
+                )
+            }
+        )
+
+        await appModel.start()
+
+        guard case let .ready(_, catalogModel) = appModel.state else {
+            Issue.record("Expected ready state")
+            return
+        }
+
+        await catalogModel.loadBooks()
+
+        #expect(catalogModel.state == .loaded([genesis]))
+    }
 }
 
 private actor CountingRepositoryLoader {
-    private let repository: any BibleRepository
+    private let repository:
+        any BibleRepository & BibleCatalogRepository
+
     private var count = 0
 
-    init(repository: any BibleRepository) {
+    init(
+        repository: any BibleRepository & BibleCatalogRepository
+    ) {
         self.repository = repository
     }
 
-    func load() async throws -> any BibleRepository {
+    func load() async throws
+        -> any BibleRepository & BibleCatalogRepository
+    {
         count += 1
 
         try await Task.sleep(

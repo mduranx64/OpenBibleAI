@@ -11,24 +11,29 @@ import BibleDomain
 @MainActor
 @Observable
 final class AppModel {
+    struct Repositories: Sendable {
+        let verses: any BibleRepository
+        let catalog: any BibleCatalogRepository
+    }
+
     enum State {
         case idle
         case loading
-        case ready(BibleReaderModel)
+        case ready(BibleReaderModel, BibleCatalogModel)
         case failed(String)
     }
 
     private(set) var state: State = .idle
 
     @ObservationIgnored
-    private let loadRepository:
-        @MainActor @Sendable () async throws -> any BibleRepository
+    private let loadRepositories:
+        @MainActor @Sendable () async throws -> Repositories
 
     init(
-        loadRepository: @escaping @MainActor @Sendable
-        () async throws -> any BibleRepository
+        loadRepositories: @escaping @MainActor @Sendable
+        () async throws -> Repositories
     ) {
-        self.loadRepository = loadRepository
+        self.loadRepositories = loadRepositories
     }
 
     func start() async {
@@ -43,21 +48,23 @@ final class AppModel {
         state = .loading
 
         do {
-            let repository = try await loadRepository()
+            let repositories = try await loadRepositories()
 
             try Task.checkCancellation()
 
             let readerModel = BibleReaderModel(
-                repository: repository
+                repository: repositories.verses
             )
 
-            state = .ready(readerModel)
+            let catalogModel = BibleCatalogModel(
+                repository: repositories.catalog
+            )
+
+            state = .ready(readerModel, catalogModel)
         } catch is CancellationError {
             state = .idle
         } catch {
-            state = .failed(
-                String(describing: error)
-            )
+            state = .failed(String(describing: error))
         }
     }
 }

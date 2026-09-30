@@ -8,10 +8,13 @@
 import Foundation
 import BibleDomain
 
-public struct JSONBibleRepository: BibleRepository {
+public struct JSONBibleRepository: BibleRepository, BibleCatalogRepository {
     private let base: InMemoryBibleRepository
 
-    public init(data: Data) throws {
+    public init(
+        data: Data,
+        books: [BibleBook] = []
+    ) throws {
         let decoder = JSONDecoder()
 
         let verseDTOs = try decoder.decode(
@@ -38,7 +41,8 @@ public struct JSONBibleRepository: BibleRepository {
         }
 
         self.base = InMemoryBibleRepository(
-            verses: verses
+            verses: verses,
+            books: books
         )
     }
 
@@ -48,13 +52,32 @@ public struct JSONBibleRepository: BibleRepository {
         try await base.verse(at: reference)
     }
     
+    public func books() async throws -> [BibleBook] {
+        try await base.books()
+    }
+
+    public func chapters(in bookID: String) async throws -> [Int] {
+        try await base.chapters(in: bookID)
+    }
+
+    public func verses(
+        in bookID: String,
+        chapter: Int
+    ) async throws -> [BibleVerse] {
+        try await base.verses(
+            in: bookID,
+            chapter: chapter
+        )
+    }
+    
     public enum LoadError: Error, Equatable, Sendable {
         case duplicateReference(BibleReference)
     }
     
     @concurrent
     public static func load(
-        from fileURL: URL
+        from fileURL: URL,
+        books: [BibleBook] = []
     ) async throws -> Self {
         try Task.checkCancellation()
 
@@ -65,7 +88,10 @@ public struct JSONBibleRepository: BibleRepository {
 
         try Task.checkCancellation()
 
-        let repository = try Self(data: data)
+        let repository = try Self(
+            data: data,
+            books: books
+        )
 
         try Task.checkCancellation()
 
