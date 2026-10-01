@@ -15,20 +15,42 @@ struct OllamaRequestFactory: Sendable {
         for studyRequest: BibleStudyRequest
     ) throws -> URLRequest {
         let reference = studyRequest.verse.reference
+        let bookName = studyRequest.bookName ?? reference.bookID
 
         let systemPrompt = """
         You are a careful Bible study assistant.
         Base your answer on the supplied biblical passage.
+        Use any chapter context only as background for understanding the \
+        selected verse; the question is about the selected verse.
         Clearly distinguish the text from interpretation.
         Do not invent Scripture citations.
         """
 
-        let userPrompt = """
-        Passage: \(reference.bookID) \
+        var userPrompt = """
+        Passage: \(bookName) \
         \(reference.chapter):\(reference.verse)
 
-        Text:
+        Selected verse:
         \(studyRequest.verse.text)
+        """
+
+        if !studyRequest.context.isEmpty {
+            let lines = studyRequest.context.map { verse in
+                let marker = verse.reference == reference ? "> " : ""
+                return "\(marker)[\(verse.reference.verse)] \(verse.text)"
+            }.joined(separator: "\n")
+
+            userPrompt += """
+
+
+            Chapter context (background only; the selected verse is \
+            marked with >):
+            \(lines)
+            """
+        }
+
+        userPrompt += """
+
 
         Question:
         \(studyRequest.question)
