@@ -17,7 +17,8 @@ import Testing
 /// about timing.
 @MainActor
 struct SearchMainActorStallTests {
-    private static let enabled =
+    // `nonisolated`: read by the `.enabled(if:)` trait outside the main actor.
+    nonisolated private static let enabled =
         ProcessInfo.processInfo.environment["OPENBIBLE_BENCH"] == "1"
 
     @MainActor

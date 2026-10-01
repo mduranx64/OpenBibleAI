@@ -15,7 +15,8 @@ import Testing
 /// answer quality or accuracy, so the text is printed for a human to read.
 @MainActor
 struct LiveOllamaSmokeTests {
-    private static let enabled =
+    // `nonisolated`: read by the `.enabled(if:)` trait outside the main actor.
+    nonisolated private static let enabled =
         ProcessInfo.processInfo.environment["OPENBIBLE_LIVE_OLLAMA"] == "1"
 
     @Test(.enabled(if: LiveOllamaSmokeTests.enabled))
