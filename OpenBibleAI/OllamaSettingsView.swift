@@ -62,7 +62,9 @@ struct OllamaSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        #if os(macOS)
         .frame(width: 460, height: 280)
+        #endif
         .task {
             await model.load()
         }

@@ -97,12 +97,14 @@ struct OpenBibleAIApp: App {
                 readingPositionStore: readingPositionStore
             )
         }
-        
+
+        #if os(macOS)
         Settings {
             OllamaSettingsView(
                 model: ollamaSettingsModel
             )
         }
+        #endif
     }
 }
 

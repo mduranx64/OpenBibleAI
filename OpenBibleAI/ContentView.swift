@@ -14,7 +14,11 @@ struct ContentView: View {
     let studyAssistantModel: StudyAssistantModel
     let ollamaSettingsModel: OllamaSettingsModel
     let readingPositionStore: ReadingPositionStore
-    
+
+    #if !os(macOS)
+    @State private var isShowingSettings = false
+    #endif
+
     private static let initialReferences: [BibleReference] = {
         (1...3).map { verse in
             do {
@@ -74,5 +78,29 @@ struct ContentView: View {
         .task {
             await ollamaSettingsModel.load()
         }
+        #if !os(macOS)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isShowingSettings = true
+                } label: {
+                    Label("Ollama Settings", systemImage: "gearshape")
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingSettings) {
+            NavigationStack {
+                OllamaSettingsView(model: ollamaSettingsModel)
+                    .navigationTitle("Ollama Settings")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") {
+                                isShowingSettings = false
+                            }
+                        }
+                    }
+            }
+        }
+        #endif
     }
 }

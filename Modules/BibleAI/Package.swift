@@ -7,6 +7,7 @@ let package = Package(
     name: "BibleAI",
     platforms: [
         .macOS(.v14),
+        .iOS(.v16)
     ],
     products: [
         .library(

@@ -1,0 +1,16 @@
+{
+  "layers" : [
+    { "filename" : "Foreground.solidimagestacklayer" },
+    { "filename" : "Background.solidimagestacklayer" }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  },
+  "properties" : {
+    "canvasSize" : {
+      "width" : 512,
+      "height" : 512
+    }
+  }
+}
