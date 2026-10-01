@@ -299,4 +299,32 @@ struct JSONBibleRepositoryTests {
 
         #expect(verses == expectedVerses)
     }
+
+    @Test
+    func repositorySearchesDecodedVerseText() async throws {
+        let json = """
+        [
+            {"book_id": "JOH", "chapter": 3, "verse": 16, "text": "For God so loved the world"},
+            {"book_id": "GEN", "chapter": 1, "verse": 1, "text": "In the beginning God created"}
+        ]
+        """
+
+        let repository = try JSONBibleRepository(
+            data: Data(json.utf8),
+            books: [
+                try BibleBook(bookID: "JOH", name: "John", canonicalOrder: 43),
+                try BibleBook(bookID: "GEN", name: "Genesis", canonicalOrder: 1)
+            ]
+        )
+
+        let result = try await repository.search(
+            BibleTextQuery("god"),
+            limit: 10
+        )
+
+        #expect(
+            result.verses.map(\.reference.bookID) == ["GEN", "JOH"]
+        )
+        #expect(result.totalCount == 2)
+    }
 }

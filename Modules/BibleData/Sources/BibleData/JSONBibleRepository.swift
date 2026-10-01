@@ -8,7 +8,11 @@
 import Foundation
 import BibleDomain
 
-public struct JSONBibleRepository: BibleRepository, BibleCatalogRepository {
+public struct JSONBibleRepository:
+    BibleRepository,
+    BibleCatalogRepository,
+    BibleTextSearchRepository
+{
     private let base: InMemoryBibleRepository
 
     public init(
@@ -70,6 +74,13 @@ public struct JSONBibleRepository: BibleRepository, BibleCatalogRepository {
         )
     }
     
+    public func search(
+        _ query: BibleTextQuery,
+        limit: Int
+    ) async throws -> BibleTextSearchResult {
+        try await base.search(query, limit: limit)
+    }
+
     public enum LoadError: Error, Equatable, Sendable {
         case duplicateReference(BibleReference)
     }
