@@ -12,9 +12,19 @@ struct BibleReaderView: View {
     let model: BibleReaderModel
     let studyAssistantModel: StudyAssistantModel
     let catalogModel: BibleCatalogModel
+    let textSearchModel: BibleTextSearchModel
+
+    private enum SearchMode: String, CaseIterable, Identifiable {
+        case reference = "Reference"
+        case text = "Text"
+
+        var id: Self { self }
+    }
 
     @State private var navigation: BibleReaderNavigationModel
     @State private var searchText = ""
+    @State private var textQuery = ""
+    @State private var searchMode = SearchMode.reference
 
     private typealias ChapterSelection = BibleReaderNavigationModel.ChapterSelection
     private var selectedBookID: String? { navigation.selectedBookID }
@@ -27,11 +37,13 @@ struct BibleReaderView: View {
         studyAssistantModel: StudyAssistantModel,
         catalogModel: BibleCatalogModel,
         searchModel: BibleReferenceSearchModel,
+        textSearchModel: BibleTextSearchModel,
         readingPositionStore: ReadingPositionStore
     ) {
         self.model = model
         self.studyAssistantModel = studyAssistantModel
         self.catalogModel = catalogModel
+        self.textSearchModel = textSearchModel
         _navigation = State(initialValue: BibleReaderNavigationModel(
             search: searchModel, catalog: catalogModel, store: readingPositionStore
         ))
@@ -49,16 +61,22 @@ struct BibleReaderView: View {
                     }
                 }
             )) {
-                Section("Books") {
-                    bookCatalogContent
-                }
+                if searchMode == .text {
+                    Section("Results") {
+                        textSearchResultsContent
+                    }
+                } else {
+                    Section("Books") {
+                        bookCatalogContent
+                    }
 
-                Section("Chapters") {
-                    chapterCatalogContent
-                }
+                    Section("Chapters") {
+                        chapterCatalogContent
+                    }
 
-                Section("Verses") {
-                    verseCatalogContent
+                    Section("Verses") {
+                        verseCatalogContent
+                    }
                 }
             }
             .safeAreaInset(edge: .top) { searchControls }
@@ -108,7 +126,14 @@ struct BibleReaderView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .onDisappear { navigation.cancelSearch() }
+        .onDisappear {
+            navigation.cancelSearch()
+            textSearchModel.cancel()
+        }
+        .onChange(of: searchMode) { _, _ in
+            navigation.cancelSearch()
+            textSearchModel.cancel()
+        }
         .task(id: activeReference) {
             guard let reference = activeReference else {
                 return
@@ -423,41 +448,156 @@ struct BibleReaderView: View {
 
     private var searchControls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                TextField("John 3:16", text: $searchText)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityLabel("Bible reference")
-                    .accessibilityIdentifier("referenceSearchField")
-                    .onSubmit { submitSearch() }
-                    .onChange(of: searchText) { _, _ in navigation.cancelSearch() }
-                Button("Go", action: submitSearch)
-                    .accessibilityIdentifier("referenceSearchButton")
-                    .disabled(searchText.allSatisfy(\.isWhitespace))
-            }
-            switch navigation.searchModel.state {
-            case .loading:
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("Finding verse…")
-                    Spacer()
-                    Button("Cancel") { navigation.cancelSearch() }
+            Picker("Search type", selection: $searchMode) {
+                ForEach(SearchMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
-            case let .failed(_, message):
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("referenceSearchError")
-            default:
-                Text("Full book name, chapter:verse")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .accessibilityIdentifier("searchModePicker")
+
+            switch searchMode {
+            case .reference:
+                referenceSearchControls
+            case .text:
+                textSearchControls
             }
         }
         .padding(12)
     }
 
+    @ViewBuilder
+    private var referenceSearchControls: some View {
+        HStack {
+            TextField("John 3:16", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Bible reference")
+                .accessibilityIdentifier("referenceSearchField")
+                .onSubmit { submitSearch() }
+                .onChange(of: searchText) { _, _ in navigation.cancelSearch() }
+            Button("Go", action: submitSearch)
+                .accessibilityIdentifier("referenceSearchButton")
+                .disabled(searchText.allSatisfy(\.isWhitespace))
+        }
+        switch navigation.searchModel.state {
+        case .loading:
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Finding verse…")
+                Spacer()
+                Button("Cancel") { navigation.cancelSearch() }
+            }
+        case let .failed(_, message):
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("referenceSearchError")
+        default:
+            Text("Full book name, chapter:verse")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var textSearchControls: some View {
+        HStack {
+            TextField("Words or \"a phrase\"", text: $textQuery)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Search the Bible text")
+                .accessibilityIdentifier("textSearchField")
+                .onSubmit { submitTextSearch() }
+                .onChange(of: textQuery) { _, _ in textSearchModel.cancel() }
+            Button("Go", action: submitTextSearch)
+                .accessibilityIdentifier("textSearchButton")
+                .disabled(textQuery.allSatisfy(\.isWhitespace))
+        }
+        if case .loading = textSearchModel.state {
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Searching…")
+                Spacer()
+                Button("Cancel") { textSearchModel.cancel() }
+            }
+        } else {
+            Text("All words, any order. Use quotes for a phrase.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var textSearchResultsContent: some View {
+        switch textSearchModel.state {
+        case .idle:
+            Text("Search the King James text above.")
+                .foregroundStyle(.secondary)
+        case .tooShort:
+            Text("Enter at least two letters.")
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("textSearchStatus")
+        case .loading:
+            ProgressView("Searching…")
+        case let .failed(_, message):
+            Text(message)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("textSearchStatus")
+        case let .loaded(_, result):
+            if result.verses.isEmpty {
+                Text("No verses match.")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("textSearchStatus")
+            } else {
+                Text(textSearchSummary(for: result))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("textSearchStatus")
+                ForEach(result.verses, id: \.reference) { verse in
+                    Button {
+                        navigation.open(verse)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(referenceLabel(for: verse.reference))
+                                .font(.caption.bold())
+                            Text(verse.text)
+                                .lineLimit(3)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(
+                        "textSearchResult-\(verse.reference.bookID)-\(verse.reference.chapter)-\(verse.reference.verse)"
+                    )
+                }
+            }
+        }
+    }
+
+    private func textSearchSummary(for result: BibleTextSearchResult) -> String {
+        if result.isTruncated {
+            return "Showing first \(result.verses.count) of \(result.totalCount) verses"
+        }
+        return result.totalCount == 1 ? "1 verse" : "\(result.totalCount) verses"
+    }
+
+    private func referenceLabel(for reference: BibleReference) -> String {
+        var name = reference.bookID
+        if case let .loaded(books) = catalogModel.state,
+           let book = books.first(where: { $0.bookID == reference.bookID }) {
+            name = book.name
+        }
+        return "\(name) \(reference.chapter):\(reference.verse)"
+    }
+
     private func submitSearch() {
         guard !searchText.allSatisfy(\.isWhitespace) else { return }
         navigation.search(searchText)
+    }
+
+    private func submitTextSearch() {
+        guard !textQuery.allSatisfy(\.isWhitespace) else { return }
+        textSearchModel.submit(textQuery)
     }
 }

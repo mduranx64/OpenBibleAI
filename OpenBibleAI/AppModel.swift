@@ -14,12 +14,18 @@ final class AppModel {
     struct Repositories: Sendable {
         let verses: any BibleRepository
         let catalog: any BibleCatalogRepository
+        let text: any BibleTextSearchRepository
     }
 
     enum State {
         case idle
         case loading
-        case ready(BibleReaderModel, BibleCatalogModel, BibleReferenceSearchModel)
+        case ready(
+            BibleReaderModel,
+            BibleCatalogModel,
+            BibleReferenceSearchModel,
+            BibleTextSearchModel
+        )
         case failed(String)
     }
 
@@ -65,7 +71,16 @@ final class AppModel {
                 verses: repositories.verses
             )
 
-            state = .ready(readerModel, catalogModel, searchModel)
+            let textSearchModel = BibleTextSearchModel(
+                repository: repositories.text
+            )
+
+            state = .ready(
+                readerModel,
+                catalogModel,
+                searchModel,
+                textSearchModel
+            )
         } catch is CancellationError {
             state = .idle
         } catch {

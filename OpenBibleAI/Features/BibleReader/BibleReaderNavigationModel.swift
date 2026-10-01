@@ -98,15 +98,25 @@ final class BibleReaderNavigationModel {
                   case let .loaded(loadedQuery, verse) = searchModel.state,
                   loadedQuery == query else { return }
 
-            let reference = verse.reference
-            selectedBookID = reference.bookID
-            selectedChapter = ChapterSelection(bookID: reference.bookID, chapter: reference.chapter)
-            selectedReference = reference
-            selectionRevision += 1
-            savePosition()
+            apply(verse.reference)
         }
         searchTask = task
         return task
+    }
+
+    /// Opens a verse chosen from text-search results through the same
+    /// selection and persistence path as an exact-reference search.
+    func open(_ verse: BibleVerse) {
+        cancelSearch()
+        apply(verse.reference)
+    }
+
+    private func apply(_ reference: BibleReference) {
+        selectedBookID = reference.bookID
+        selectedChapter = ChapterSelection(bookID: reference.bookID, chapter: reference.chapter)
+        selectedReference = reference
+        selectionRevision += 1
+        savePosition()
     }
 
     func restoreReadingPosition() async {

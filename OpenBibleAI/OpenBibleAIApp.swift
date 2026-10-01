@@ -46,7 +46,8 @@ struct OpenBibleAIApp: App {
 
                 return AppModel.Repositories(
                     verses: CachingBibleRepository(base: repository),
-                    catalog: repository
+                    catalog: repository,
+                    text: repository
                 )
             }
         )

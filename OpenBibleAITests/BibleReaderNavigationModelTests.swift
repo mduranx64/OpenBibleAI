@@ -110,6 +110,45 @@ struct BibleReaderNavigationModelTests {
         }
     }
 
+    @Test func openSelectsBookChapterVerseAndSavesOnlyChapter() async throws {
+        try await withStore { store in
+            let (repository, verse) = try fixture()
+            let model = BibleReaderNavigationModel(
+                search: BibleReferenceSearchModel(catalog: repository, verses: repository),
+                catalog: BibleCatalogModel(repository: repository), store: store
+            )
+            let revision = model.selectionRevision
+            model.open(verse)
+            #expect(model.selectedBookID == "JOH")
+            #expect(model.selectedChapter == .init(bookID: "JOH", chapter: 3))
+            #expect(model.selectedReference == verse.reference)
+            #expect(model.selectionRevision == revision + 1)
+            #expect(try store.load() == ReadingPosition(bookID: "JOH", chapter: 3))
+        }
+    }
+
+    @Test func openInvalidatesDelayedReferenceSearchAndRestoration() async throws {
+        try await withStore { store in
+            let (repository, verse) = try fixture()
+            let other = try BibleVerse(
+                reference: BibleReference(bookID: "JOH", chapter: 1, verse: 1),
+                text: "Other verse"
+            )
+            let delayed = NavigationDelayedVerse(verse: verse)
+            let model = BibleReaderNavigationModel(
+                search: BibleReferenceSearchModel(catalog: repository, verses: delayed),
+                catalog: BibleCatalogModel(repository: repository), store: store
+            )
+            let pending = model.search("John 3:16")
+            await delayed.waitUntilStarted()
+            model.open(other)
+            await delayed.finish()
+            await pending.value
+            #expect(model.selectedReference == other.reference)
+            #expect(try store.load() == ReadingPosition(bookID: "JOH", chapter: 1))
+        }
+    }
+
     @Test func restoresChapterWithoutSelectingVerse() async throws {
         try await withStore { store in
             let (repository, _) = try fixture()

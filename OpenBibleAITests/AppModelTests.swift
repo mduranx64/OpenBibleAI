@@ -18,12 +18,13 @@ struct AppModelTests {
         let catalog = InMemoryBibleRepository(verses: [], books: [
             try BibleBook(bookID: "JOH", name: "John", canonicalOrder: 43)
         ])
-        let verses = CachingBibleRepository(base: InMemoryBibleRepository(verses: [verse]))
+        let stored = InMemoryBibleRepository(verses: [verse])
+        let verses = CachingBibleRepository(base: stored)
         let model = AppModel(loadRepositories: {
-            AppModel.Repositories(verses: verses, catalog: catalog)
+            AppModel.Repositories(verses: verses, catalog: catalog, text: stored)
         })
         await model.start()
-        guard case let .ready(_, _, search) = model.state else {
+        guard case let .ready(_, _, search, _) = model.state else {
             Issue.record("Expected search to be composed with the loaded repositories")
             return
         }
@@ -52,7 +53,8 @@ struct AppModelTests {
             loadRepositories: {
                 AppModel.Repositories(
                     verses: repository,
-                    catalog: repository
+                    catalog: repository,
+                    text: repository
                 )
             }
         )
@@ -64,7 +66,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(readerModel, _, _) = appModel.state else {
+        guard case let .ready(readerModel, _, _, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -102,7 +104,8 @@ struct AppModelTests {
 
                 return AppModel.Repositories(
                     verses: repository,
-                    catalog: repository
+                    catalog: repository,
+                    text: repository
                 )
             }
         )
@@ -136,14 +139,15 @@ struct AppModelTests {
             loadRepositories: {
                 AppModel.Repositories(
                     verses: CachingBibleRepository(base: repository),
-                    catalog: repository
+                    catalog: repository,
+                    text: repository
                 )
             }
         )
 
         await appModel.start()
 
-        guard case let .ready(_, catalogModel, _) = appModel.state else {
+        guard case let .ready(_, catalogModel, _, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -152,22 +156,56 @@ struct AppModelTests {
 
         #expect(catalogModel.state == .loaded([genesis]))
     }
+
+    @Test
+    @MainActor
+    func startCreatesTextSearchWithLoadedRepository() async throws {
+        let verse = try BibleVerse(
+            reference: BibleReference(bookID: "GEN", chapter: 1, verse: 1),
+            text: "In the beginning"
+        )
+        let repository = InMemoryBibleRepository(verses: [verse])
+        let appModel = AppModel(
+            loadRepositories: {
+                AppModel.Repositories(
+                    verses: repository,
+                    catalog: repository,
+                    text: repository
+                )
+            }
+        )
+
+        await appModel.start()
+
+        guard case let .ready(_, _, _, textSearch) = appModel.state else {
+            Issue.record("Expected ready state")
+            return
+        }
+
+        await textSearch.search("beginning")
+
+        guard case let .loaded(_, result) = textSearch.state else {
+            Issue.record("Expected text search results")
+            return
+        }
+        #expect(result.verses == [verse])
+    }
 }
 
 private actor CountingRepositoryLoader {
     private let repository:
-        any BibleRepository & BibleCatalogRepository
+        any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository
 
     private var count = 0
 
     init(
-        repository: any BibleRepository & BibleCatalogRepository
+        repository: any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository
     ) {
         self.repository = repository
     }
 
     func load() async throws
-        -> any BibleRepository & BibleCatalogRepository
+        -> any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository
     {
         count += 1
 
