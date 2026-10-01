@@ -188,4 +188,50 @@ struct BibleTextSearchTests {
             try await task.value
         }
     }
+
+    @Test
+    func nonASCIIVerseTextMatchesFoldedQueries() async throws {
+        let repository = InMemoryBibleRepository(
+            verses: [
+                try verse("GEN", 1, 1, "Élan vital, naïve café — Ünïcode’s “quoted” word.")
+            ],
+            books: try books()
+        )
+
+        for raw in ["elan", "NAIVE", "cafe", "unicode", "\"naive cafe\"", "quoted word"] {
+            let result = try await repository.search(BibleTextQuery(raw), limit: 10)
+            #expect(result.totalCount == 1, "query \(raw)")
+        }
+    }
+
+    /// A search over a full-size dataset must not occupy the caller's actor.
+    /// While it runs, a main-actor task started just before it has to get
+    /// a chance to run; if the scan blocks the main actor, it cannot.
+    @MainActor
+    @Test
+    func searchDoesNotBlockTheCallersMainActor() async throws {
+        let verses = try (1...31_000).map { number in
+            try verse(
+                "GEN",
+                (number - 1) / 100 + 1,
+                (number - 1) % 100 + 1,
+                "In the beginning God created the heaven and the earth \(number)."
+            )
+        }
+        let repository = InMemoryBibleRepository(
+            verses: verses,
+            books: [try BibleBook(bookID: "GEN", name: "Genesis", canonicalOrder: 1)]
+        )
+        let flag = MainActorFlag()
+
+        Task { @MainActor in flag.isSet = true }
+        _ = try await repository.search(BibleTextQuery("zzzqxj"), limit: 10)
+
+        #expect(flag.isSet)
+    }
+}
+
+@MainActor
+private final class MainActorFlag {
+    var isSet = false
 }

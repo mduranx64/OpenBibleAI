@@ -50,6 +50,9 @@ public struct InMemoryBibleRepository:
         }
     }
 
+    /// `@concurrent` keeps the full-Bible scan off the caller's actor; plain
+    /// `async` would run it on the main actor for UI callers.
+    @concurrent
     public func search(
         _ query: BibleTextQuery,
         limit: Int

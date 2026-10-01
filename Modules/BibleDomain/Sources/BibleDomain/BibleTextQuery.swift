@@ -55,12 +55,45 @@ public struct BibleTextQuery: Equatable, Sendable {
     static let minimumCharacterCount = 2
 
     static func words(in text: String) -> [String] {
-        text.folding(
+        // Foundation folding dominates search time on the full Bible, and
+        // nearly all scripture text is ASCII. The fast path produces the
+        // same words (verified against the folding path in
+        // SearchEquivalenceTests); anything else takes the general path.
+        if let words = asciiWords(in: text) {
+            return words
+        }
+
+        return text.folding(
             options: [.caseInsensitive, .diacriticInsensitive],
             locale: nil
         )
         .split { !$0.isLetter && !$0.isNumber }
         .map(String.init)
+    }
+
+    /// Lowercased `[a-z0-9]+` runs, or nil if `text` contains non-ASCII.
+    private static func asciiWords(in text: String) -> [String]? {
+        var words: [String] = []
+        var current: [UInt8] = []
+
+        for byte in text.utf8 {
+            guard byte < 0x80 else { return nil }
+
+            let lowered = (65...90).contains(byte) ? byte + 32 : byte
+
+            if (97...122).contains(lowered) || (48...57).contains(lowered) {
+                current.append(lowered)
+            } else if !current.isEmpty {
+                words.append(String(decoding: current, as: UTF8.self))
+                current.removeAll(keepingCapacity: true)
+            }
+        }
+
+        if !current.isEmpty {
+            words.append(String(decoding: current, as: UTF8.self))
+        }
+
+        return words
     }
 
     private static func contains(
