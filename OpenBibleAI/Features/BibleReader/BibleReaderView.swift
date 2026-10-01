@@ -365,7 +365,9 @@ struct BibleReaderView: View {
             if verse.reference == reference {
                 StudyAssistantView(
                     model: studyAssistantModel,
-                    verse: verse
+                    verse: verse,
+                    bookName: bookName(for: verse.reference.bookID),
+                    chapterVerses: loadedChapterVerses(for: verse.reference)
                 )
                 .id(verse.reference)
                 .navigationSplitViewColumnWidth(
@@ -583,12 +585,21 @@ struct BibleReaderView: View {
     }
 
     private func referenceLabel(for reference: BibleReference) -> String {
-        var name = reference.bookID
-        if case let .loaded(books) = catalogModel.state,
-           let book = books.first(where: { $0.bookID == reference.bookID }) {
-            name = book.name
-        }
+        let name = bookName(for: reference.bookID) ?? reference.bookID
         return "\(name) \(reference.chapter):\(reference.verse)"
+    }
+
+    private func bookName(for bookID: String) -> String? {
+        guard case let .loaded(books) = catalogModel.state else { return nil }
+        return books.first(where: { $0.bookID == bookID })?.name
+    }
+
+    /// The loaded chapter's verses, only if they belong to `reference`.
+    private func loadedChapterVerses(for reference: BibleReference) -> [BibleVerse] {
+        guard case let .loaded(bookID, chapter, verses) = catalogModel.versesState,
+              bookID == reference.bookID, chapter == reference.chapter
+        else { return [] }
+        return verses
     }
 
     private func submitSearch() {

@@ -11,6 +11,10 @@ import BibleDomain
 struct StudyAssistantView: View {
     let model: StudyAssistantModel
     let verse: BibleVerse
+    /// Full book name for display and prompts; nil falls back to the book ID.
+    var bookName: String?
+    /// The loaded chapter containing `verse`, used for bounded context.
+    var chapterVerses: [BibleVerse] = []
 
     @State private var question = ""
     @State private var requestTask: Task<Void, Never>?
@@ -22,10 +26,26 @@ struct StudyAssistantView: View {
         )
     }
 
+    private var referenceLabel: String {
+        let reference = verse.reference
+        return "\(bookName ?? reference.bookID) \(reference.chapter):\(reference.verse)"
+    }
+
+    /// Generated state is shown only for the verse it was generated for.
+    private var ownsCurrentAnswer: Bool {
+        model.answerReference == verse.reference
+    }
+
+    private var answerText: String {
+        model.answer(for: verse.reference)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("AI Study Assistant")
                 .font(.title2.bold())
+
+            verseCard
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -37,9 +57,17 @@ struct StudyAssistantView: View {
                                 "Enter a question to study the selected verse."
                             )
                         )
-                    } else {
-                        if !model.answer.isEmpty {
-                            Text(model.answer)
+                    } else if ownsCurrentAnswer {
+                        Label(
+                            "Generated explanation — not Scripture",
+                            systemImage: "sparkles"
+                        )
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("generatedAnswerLabel")
+
+                        if !answerText.isEmpty {
+                            Text(answerText)
                                 .textSelection(.enabled)
                                 .frame(
                                     maxWidth: .infinity,
@@ -55,6 +83,12 @@ struct StudyAssistantView: View {
                         if case let .failed(message) = model.state {
                             Text(message)
                                 .foregroundStyle(.red)
+                        }
+
+                        if model.state == .completed {
+                            Text("AI-generated and may contain errors. Check important points against the text.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -91,9 +125,29 @@ struct StudyAssistantView: View {
             }
         }
         .padding()
+        .onAppear {
+            // A new verse starts clean; late chunks from another verse's
+            // stream are dropped by the model's generation guard.
+            model.reset()
+        }
         .onDisappear {
             requestTask?.cancel()
         }
+    }
+
+    /// Canonical text, visibly separate from the generated answer below.
+    private var verseCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(referenceLabel)
+                .font(.headline)
+                .accessibilityIdentifier("studyVerseReference")
+
+            Text(verse.text)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func startRequest() {
@@ -109,6 +163,8 @@ struct StudyAssistantView: View {
         requestTask = Task {
             await model.ask(
                 verse: verse,
+                bookName: bookName,
+                chapterVerses: chapterVerses,
                 question: submittedQuestion
             )
         }
