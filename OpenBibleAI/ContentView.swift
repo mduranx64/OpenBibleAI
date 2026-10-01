@@ -71,7 +71,7 @@ struct ContentView: View {
                 }
             }
         }
-        .frame(minWidth: 640, minHeight: 480)
+        .frame(minWidth: 900, minHeight: 480)
         .task {
             await appModel.start()
         }

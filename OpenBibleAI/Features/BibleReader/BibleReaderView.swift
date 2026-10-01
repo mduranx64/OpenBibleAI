@@ -112,18 +112,27 @@ struct BibleReaderView: View {
                 .safeAreaInset(edge: .bottom) {
                     chapterNavigationControls
                 }
+                // The reading column needs a floor: without one it was
+                // squeezed to ~200 pt while the study panel took the rest.
+                // The floor also applies to a previously saved layout.
+                .navigationSplitViewColumnWidth(min: 360, ideal: 560)
         } detail: {
-            if let reference = activeReference {
-                studyContent(for: reference)
-            } else {
-                ContentUnavailableView(
-                    "AI Study Assistant",
-                    systemImage: "sparkles",
-                    description: Text(
-                        "Select a verse to begin studying."
+            Group {
+                if let reference = activeReference {
+                    studyContent(for: reference)
+                } else {
+                    ContentUnavailableView(
+                        "AI Study Assistant",
+                        systemImage: "sparkles",
+                        description: Text(
+                            "Select a verse to begin studying."
+                        )
                     )
-                )
+                }
             }
+            // One rule for every study-panel state, capped so spare width
+            // goes to the reading column instead.
+            .navigationSplitViewColumnWidth(min: 320, ideal: 380, max: 480)
         }
         .navigationSplitViewStyle(.balanced)
         .onDisappear {
@@ -370,10 +379,6 @@ struct BibleReaderView: View {
                     chapterVerses: loadedChapterVerses(for: verse.reference)
                 )
                 .id(verse.reference)
-                .navigationSplitViewColumnWidth(
-                    min: 320,
-                    ideal: 400
-                )
             } else {
                 ProgressView("Loading selected verse…")
             }

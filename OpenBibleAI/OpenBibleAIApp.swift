@@ -97,6 +97,8 @@ struct OpenBibleAIApp: App {
                 readingPositionStore: readingPositionStore
             )
         }
+        // Used when there is no saved window frame (first launch).
+        .defaultSize(width: 1280, height: 800)
 
         #if os(macOS)
         Settings {
