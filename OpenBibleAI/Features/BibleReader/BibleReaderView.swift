@@ -25,6 +25,9 @@ struct BibleReaderView: View {
     @State private var searchText = ""
     @State private var textQuery = ""
     @State private var searchMode = SearchMode.reference
+    /// Drill-down: the book list, or the chapter grid of the selected book.
+    @State private var showsBookList = true
+    @State private var bookFilter = ""
 
     private typealias ChapterSelection = BibleReaderNavigationModel.ChapterSelection
     private var selectedBookID: String? { navigation.selectedBookID }
@@ -51,35 +54,13 @@ struct BibleReaderView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: Binding(
-                get: { selectedReference },
-                set: { reference in
-                    if let reference {
-                        navigation.selectVerse(reference)
-                    } else {
-                        navigation.deselectVerse()
-                    }
-                }
-            )) {
-                if searchMode == .text {
-                    Section("Results") {
-                        textSearchResultsContent
-                    }
-                } else {
-                    Section("Books") {
-                        bookCatalogContent
-                    }
-
-                    Section("Chapters") {
-                        chapterCatalogContent
-                    }
-
-                    Section("Verses") {
-                        verseCatalogContent
-                    }
-                }
-            }
+            sidebarContent
             .safeAreaInset(edge: .top) { searchControls }
+            .onChange(of: selectedBookID) { _, bookID in
+                // Search, restoration and cross-book steps also change the
+                // book; show its chapters whenever that happens.
+                if bookID != nil { showsBookList = false }
+            }
             .navigationTitle("Bible")
             .navigationSplitViewColumnWidth(
                 min: 180,
@@ -116,6 +97,7 @@ struct BibleReaderView: View {
                 // squeezed to ~200 pt while the study panel took the rest.
                 // The floor also applies to a previously saved layout.
                 .navigationSplitViewColumnWidth(min: 360, ideal: 560)
+                .navigationTitle(locationTitle)
         } detail: {
             Group {
                 if let reference = activeReference {
@@ -153,161 +135,180 @@ struct BibleReaderView: View {
     }
     
     @ViewBuilder
-    private var bookCatalogContent: some View {
-        switch catalogModel.state {
-        case .idle, .loading:
-            ProgressView("Loading books…")
-
-        case let .loaded(books):
-            if books.isEmpty {
-                Text("No books available")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(books) { book in
-                    Button {
-                        navigation.selectBook(book.bookID)
-                    } label: {
-                        HStack {
-                            Label(book.name, systemImage: "book.closed")
-
-                            Spacer()
-
-                            if selectedBookID == book.bookID {
-                                Image(systemName: "checkmark")
-                                    .accessibilityHidden(true)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(
-                        selectedBookID == book.bookID ? .isSelected : []
-                    )
+    private var sidebarContent: some View {
+        if searchMode == .text {
+            List {
+                Section("Results") {
+                    textSearchResultsContent
                 }
             }
+        } else if showsBookList || selectedBookID == nil {
+            bookListContent
+        } else {
+            chapterGridContent
+        }
+    }
 
-        case .failed:
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Couldn’t load books")
-                    .foregroundStyle(.secondary)
+    private var bookListContent: some View {
+        List {
+            TextField("Filter books", text: $bookFilter)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("bookFilterField")
 
-                Button("Retry") {
-                    Task {
-                        await catalogModel.loadBooks()
+            switch catalogModel.state {
+            case .idle, .loading:
+                ProgressView("Loading books…")
+
+            case let .loaded(books):
+                let visible = filteredBooks(books)
+                if visible.isEmpty {
+                    Text(books.isEmpty ? "No books available" : "No books match")
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(BibleBook.Testament.allCases, id: \.self) { testament in
+                    let group = visible.filter { $0.testament == testament }
+                    if !group.isEmpty {
+                        Section(testament == .old ? "Old Testament" : "New Testament") {
+                            ForEach(group) { book in
+                                bookRow(book)
+                            }
+                        }
+                    }
+                }
+
+            case .failed:
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Couldn’t load books")
+                        .foregroundStyle(.secondary)
+
+                    Button("Retry") {
+                        Task {
+                            await catalogModel.loadBooks()
+                        }
                     }
                 }
             }
         }
     }
-    
+
+    private func bookRow(_ book: BibleBook) -> some View {
+        Button {
+            navigation.selectBook(book.bookID)
+            showsBookList = false
+        } label: {
+            HStack {
+                Label(book.name, systemImage: "book.closed")
+
+                Spacer()
+
+                if selectedBookID == book.bookID {
+                    Image(systemName: "checkmark")
+                        .accessibilityHidden(true)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("book-\(book.bookID)")
+        .accessibilityAddTraits(
+            selectedBookID == book.bookID ? .isSelected : []
+        )
+    }
+
+    /// Case- and diacritic-insensitive match on the book name.
+    private func filteredBooks(_ books: [BibleBook]) -> [BibleBook] {
+        let filter = bookFilter.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !filter.isEmpty else { return books }
+        return books.filter { $0.name.localizedStandardContains(filter) }
+    }
+
     @ViewBuilder
-    private var chapterCatalogContent: some View {
+    private var chapterGridContent: some View {
         if let selectedBookID {
-            switch catalogModel.chaptersState {
-            case let .loaded(bookID, chapters)
-                where bookID == selectedBookID:
-                if chapters.isEmpty {
-                    Text("No chapters available")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(chapters, id: \.self) { chapter in
-                        let selection = ChapterSelection(
-                            bookID: selectedBookID,
-                            chapter: chapter
-                        )
-
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
                         Button {
-                            selectChapter(
-                                chapter,
-                                in: selectedBookID
-                            )
+                            showsBookList = true
                         } label: {
-                            HStack {
-                                Text("Chapter \(chapter)")
+                            Label("Books", systemImage: "chevron.left")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("backToBooksButton")
 
-                                Spacer()
+                        Spacer()
 
-                                if selectedChapter == selection {
-                                    Image(systemName: "checkmark")
-                                        .accessibilityHidden(true)
+                        Text(bookName(for: selectedBookID) ?? selectedBookID)
+                            .font(.headline)
+                    }
+
+                    switch catalogModel.chaptersState {
+                    case let .loaded(bookID, chapters) where bookID == selectedBookID:
+                        if chapters.isEmpty {
+                            Text("No chapters available")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            LazyVGrid(
+                                columns: [GridItem(.adaptive(minimum: 44), spacing: 8)],
+                                spacing: 8
+                            ) {
+                                ForEach(chapters, id: \.self) { chapter in
+                                    chapterCell(chapter, in: selectedBookID)
                                 }
                             }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(
-                            selectedChapter == selection ? .isSelected : []
-                        )
+
+                    case let .failed(bookID, _) where bookID == selectedBookID:
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Couldn’t load chapters")
+                                .foregroundStyle(.secondary)
+
+                            Button("Retry") {
+                                Task {
+                                    await catalogModel.loadChapters(in: selectedBookID)
+                                }
+                            }
+                        }
+
+                    default:
+                        ProgressView("Loading chapters…")
                     }
                 }
-
-            case let .failed(bookID, _)
-                where bookID == selectedBookID:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Couldn’t load chapters")
-                        .foregroundStyle(.secondary)
-
-                    Button("Retry") {
-                        Task {
-                            await catalogModel.loadChapters(
-                                in: selectedBookID
-                            )
-                        }
-                    }
-                }
-
-            default:
-                ProgressView("Loading chapters…")
+                .padding(12)
             }
-        } else {
-            Text("Select a book")
-                .foregroundStyle(.secondary)
         }
     }
-    
-    @ViewBuilder
-    private var verseCatalogContent: some View {
-        if let selectedChapter {
-            switch catalogModel.versesState {
-            case let .loaded(bookID, chapter, verses)
-                where bookID == selectedChapter.bookID
-                    && chapter == selectedChapter.chapter:
-                if verses.isEmpty {
-                    Text("No verses available")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(verses, id: \.reference) { verse in
-                        Text("Verse \(verse.reference.verse)")
-                            .tag(verse.reference)
-                    }
-                }
 
-            case let .failed(bookID, chapter, _)
-                where bookID == selectedChapter.bookID
-                    && chapter == selectedChapter.chapter:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Couldn’t load verses")
-                        .foregroundStyle(.secondary)
+    private func chapterCell(_ chapter: Int, in bookID: String) -> some View {
+        let isSelected = selectedChapter == ChapterSelection(bookID: bookID, chapter: chapter)
 
-                    Button("Retry") {
-                        Task {
-                            await catalogModel.loadVerses(
-                                in: selectedChapter.bookID,
-                                chapter: selectedChapter.chapter
-                            )
-                        }
-                    }
-                }
-
-            default:
-                ProgressView("Loading verses…")
-            }
-        } else {
-            Text("Select a chapter")
-                .foregroundStyle(.secondary)
+        return Button {
+            selectChapter(chapter, in: bookID)
+        } label: {
+            Text("\(chapter)")
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, minHeight: 32)
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .background(
+                    isSelected ? Color.accentColor : Color.secondary.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 6)
+                )
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Chapter \(chapter)")
+        .accessibilityIdentifier("chapter-\(bookID)-\(chapter)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
-    
+
+    /// Breadcrumb for the reading pane, e.g. "John 3".
+    private var locationTitle: String {
+        guard let selectedChapter else { return "Bible" }
+        let name = bookName(for: selectedChapter.bookID) ?? selectedChapter.bookID
+        return "\(name) \(selectedChapter.chapter)"
+    }
+
     @ViewBuilder
     private var chapterReadingContent: some View {
         if let selectedChapter {
@@ -322,7 +323,7 @@ struct BibleReaderView: View {
                     )
                 } else {
                     BibleChapterReadingView(
-                        chapter: chapter,
+                        title: locationTitle,
                         verses: verses,
                         selectedReference: selectedReference,
                         selectionRevision: navigation.selectionRevision,
@@ -399,49 +400,47 @@ struct BibleReaderView: View {
     
     @ViewBuilder
     private var chapterNavigationControls: some View {
-        if let selectedChapter {
-            let previous = catalogModel.previousChapter(
-                in: selectedChapter.bookID,
-                before: selectedChapter.chapter
-            )
-
-            let next = catalogModel.nextChapter(
-                in: selectedChapter.bookID,
-                after: selectedChapter.chapter
-            )
-
+        if selectedChapter != nil {
             HStack {
                 Button {
-                    if let previous {
-                        selectChapter(
-                            previous,
-                            in: selectedChapter.bookID
-                        )
-                    }
+                    Task { await navigation.goToPreviousChapter() }
                 } label: {
-                    Label(
-                        "Previous Chapter",
-                        systemImage: "chevron.left"
-                    )
+                    Label("Previous Chapter", systemImage: "chevron.left")
                 }
-                .disabled(previous == nil)
+                .disabled(!navigation.canGoToPreviousChapter)
+                .keyboardShortcut("[", modifiers: .command)
+                .help("Previous chapter (⌘[)")
 
                 Spacer()
 
                 Button {
-                    if let next {
-                        selectChapter(
-                            next,
-                            in: selectedChapter.bookID
-                        )
-                    }
+                    navigation.selectAdjacentVerse(-1)
                 } label: {
-                    Label(
-                        "Next Chapter",
-                        systemImage: "chevron.right"
-                    )
+                    Label("Previous Verse", systemImage: "chevron.up")
                 }
-                .disabled(next == nil)
+                .labelStyle(.iconOnly)
+                .keyboardShortcut(.upArrow, modifiers: .option)
+                .help("Previous verse (⌥↑)")
+
+                Button {
+                    navigation.selectAdjacentVerse(1)
+                } label: {
+                    Label("Next Verse", systemImage: "chevron.down")
+                }
+                .labelStyle(.iconOnly)
+                .keyboardShortcut(.downArrow, modifiers: .option)
+                .help("Next verse (⌥↓)")
+
+                Spacer()
+
+                Button {
+                    Task { await navigation.goToNextChapter() }
+                } label: {
+                    Label("Next Chapter", systemImage: "chevron.right")
+                }
+                .disabled(!navigation.canGoToNextChapter)
+                .keyboardShortcut("]", modifiers: .command)
+                .help("Next chapter (⌘])")
             }
             .buttonStyle(.bordered)
             .padding()

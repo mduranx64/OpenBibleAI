@@ -74,14 +74,21 @@ final class ReferenceSearchUITests: XCTestCase {
     func testChapterBoundariesAndRelaunchRestoration() {
         let app = XCUIApplication()
         launch(app)
+        // Previous/Next cross book boundaries and stop only at the first
+        // chapter of Genesis and the last chapter of Revelation.
         search("Genesis 1:1", in: app)
         expectSelected("verse-GEN-1-1", in: app)
         XCTAssertFalse(app.buttons["Previous Chapter"].isEnabled)
         XCTAssertTrue(app.buttons["Next Chapter"].isEnabled)
 
+        search("Revelation 22:21", in: app)
+        expectSelected("verse-REV-22-21", in: app)
+        XCTAssertTrue(app.buttons["Previous Chapter"].isEnabled)
+        XCTAssertFalse(app.buttons["Next Chapter"].isEnabled)
+
         search("Genesis 50:26", in: app)
         expectSelected("verse-GEN-50-26", in: app)
-        XCTAssertFalse(app.buttons["Next Chapter"].isEnabled)
+        XCTAssertTrue(app.buttons["Next Chapter"].isEnabled, "Genesis 50 continues to Exodus 1")
         app.terminate()
         launch(app)
         // Restoration intentionally saves chapter only, not verse or scroll offset.

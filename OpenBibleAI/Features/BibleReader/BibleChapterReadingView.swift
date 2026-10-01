@@ -2,7 +2,8 @@ import SwiftUI
 import BibleDomain
 
 struct BibleChapterReadingView: View {
-    let chapter: Int
+    /// Location heading, e.g. "John 3".
+    let title: String
     let verses: [BibleVerse]
     let selectedReference: BibleReference?
     let selectionRevision: Int
@@ -15,9 +16,10 @@ struct BibleChapterReadingView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                Text("Chapter \(chapter)")
+                Text(title)
                     .font(.title.bold())
                     .padding(.bottom, 8)
+                    .accessibilityIdentifier("chapterTitle")
 
                 ForEach(verses, id: \.reference) { verse in
                     Button {
