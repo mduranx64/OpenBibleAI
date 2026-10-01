@@ -149,6 +149,155 @@ struct BibleReaderNavigationModelTests {
         }
     }
 
+    // MARK: Chapter and verse stepping
+
+    /// GEN 1–2, EXO with no verses (an incomplete dataset), LEV 1–2.
+    private func steppingFixture() throws -> InMemoryBibleRepository {
+        func verse(_ book: String, _ chapter: Int) throws -> BibleVerse {
+            try BibleVerse(
+                reference: BibleReference(bookID: book, chapter: chapter, verse: 1),
+                text: "\(book) \(chapter):1"
+            )
+        }
+        return InMemoryBibleRepository(
+            verses: try [verse("GEN", 1), verse("GEN", 2), verse("LEV", 1), verse("LEV", 2)],
+            books: [
+                try BibleBook(bookID: "GEN", name: "Genesis", canonicalOrder: 1),
+                try BibleBook(bookID: "EXO", name: "Exodus", canonicalOrder: 2),
+                try BibleBook(bookID: "LEV", name: "Leviticus", canonicalOrder: 3)
+            ]
+        )
+    }
+
+    private func steppingModel(
+        _ repository: some BibleCatalogRepository & BibleRepository,
+        store: ReadingPositionStore,
+        at bookID: String,
+        chapter: Int
+    ) async -> (BibleReaderNavigationModel, BibleCatalogModel) {
+        let catalog = BibleCatalogModel(repository: repository)
+        await catalog.loadBooks()
+        let model = BibleReaderNavigationModel(
+            search: BibleReferenceSearchModel(catalog: repository, verses: repository),
+            catalog: catalog, store: store
+        )
+        model.selectChapter(chapter, in: bookID)
+        await catalog.loadChapters(in: bookID)
+        return (model, catalog)
+    }
+
+    @Test func nextChapterStaysWithinBookWhenPossible() async throws {
+        try await withStore { store in
+            let (model, _) = try await steppingModel(steppingFixture(), store: store, at: "GEN", chapter: 1)
+            #expect(model.canGoToNextChapter)
+            await model.goToNextChapter()
+            #expect(model.selectedChapter == .init(bookID: "GEN", chapter: 2))
+            #expect(try store.load() == ReadingPosition(bookID: "GEN", chapter: 2))
+        }
+    }
+
+    @Test func nextChapterCrossesToFirstChapterOfNextNonEmptyBook() async throws {
+        try await withStore { store in
+            let (model, _) = try await steppingModel(steppingFixture(), store: store, at: "GEN", chapter: 2)
+            #expect(model.canGoToNextChapter)
+            await model.goToNextChapter()
+            #expect(model.selectedBookID == "LEV")
+            #expect(model.selectedChapter == .init(bookID: "LEV", chapter: 1))
+            #expect(model.selectedReference == nil)
+            #expect(try store.load() == ReadingPosition(bookID: "LEV", chapter: 1))
+        }
+    }
+
+    @Test func previousChapterCrossesToLastChapterOfPreviousNonEmptyBook() async throws {
+        try await withStore { store in
+            let (model, _) = try await steppingModel(steppingFixture(), store: store, at: "LEV", chapter: 1)
+            #expect(model.canGoToPreviousChapter)
+            await model.goToPreviousChapter()
+            #expect(model.selectedChapter == .init(bookID: "GEN", chapter: 2))
+            #expect(try store.load() == ReadingPosition(bookID: "GEN", chapter: 2))
+        }
+    }
+
+    @Test func steppingStopsAtTheFirstAndLastChapterOfTheBible() async throws {
+        try await withStore { store in
+            let repository = try steppingFixture()
+            let (first, _) = await steppingModel(repository, store: store, at: "GEN", chapter: 1)
+            #expect(!first.canGoToPreviousChapter)
+            await first.goToPreviousChapter()
+            #expect(first.selectedChapter == .init(bookID: "GEN", chapter: 1))
+
+            let (last, _) = await steppingModel(repository, store: store, at: "LEV", chapter: 2)
+            #expect(!last.canGoToNextChapter)
+            await last.goToNextChapter()
+            #expect(last.selectedChapter == .init(bookID: "LEV", chapter: 2))
+            #expect(try store.load() == ReadingPosition(bookID: "LEV", chapter: 2))
+        }
+    }
+
+    @Test func newerChapterChoiceWinsOverPendingCrossBookStep() async throws {
+        try await withStore { store in
+            let base = try steppingFixture()
+            let delayed = SteppingDelayedCatalog(base: base, delayedBookID: "EXO")
+            let (model, _) = await steppingModel(delayed, store: store, at: "GEN", chapter: 2)
+
+            let stepping = Task { await model.goToNextChapter() }
+            await delayed.waitUntilStarted()
+            model.selectChapter(1, in: "GEN")
+            await delayed.finish()
+            await stepping.value
+
+            #expect(model.selectedChapter == .init(bookID: "GEN", chapter: 1))
+            #expect(try store.load() == ReadingPosition(bookID: "GEN", chapter: 1))
+        }
+    }
+
+    @Test func verseSteppingStartsAtFirstVerseAndStopsAtChapterEdges() async throws {
+        try await withStore { store in
+            let verses = try (1...3).map {
+                try BibleVerse(reference: BibleReference(bookID: "JOH", chapter: 3, verse: $0), text: "v\($0)")
+            }
+            let repository = InMemoryBibleRepository(verses: verses, books: [
+                try BibleBook(bookID: "JOH", name: "John", canonicalOrder: 43)
+            ])
+            let catalog = BibleCatalogModel(repository: repository)
+            let model = BibleReaderNavigationModel(
+                search: BibleReferenceSearchModel(catalog: repository, verses: repository),
+                catalog: catalog, store: store
+            )
+            model.selectChapter(3, in: "JOH")
+
+            model.selectAdjacentVerse(1)
+            #expect(model.selectedReference == nil, "No chapter rows loaded yet")
+
+            await catalog.loadVerses(in: "JOH", chapter: 3)
+            let revision = model.selectionRevision
+            model.selectAdjacentVerse(1)
+            #expect(model.selectedReference == verses[0].reference)
+            #expect(model.selectionRevision == revision + 1)
+            model.selectAdjacentVerse(1)
+            model.selectAdjacentVerse(1)
+            model.selectAdjacentVerse(1)
+            #expect(model.selectedReference == verses[2].reference)
+            model.selectAdjacentVerse(-1)
+            #expect(model.selectedReference == verses[1].reference)
+            model.selectAdjacentVerse(-1)
+            model.selectAdjacentVerse(-1)
+            #expect(model.selectedReference == verses[0].reference)
+        }
+    }
+
+    @Test func chapterNumbersLookupDoesNotChangeChapterListState() async throws {
+        let repository = try steppingFixture()
+        let catalog = BibleCatalogModel(repository: repository)
+        await catalog.loadChapters(in: "GEN")
+        let before = catalog.chaptersState
+
+        let levChapters = try await catalog.chapterNumbers(in: "LEV")
+
+        #expect(levChapters == [1, 2])
+        #expect(catalog.chaptersState == before)
+    }
+
     @Test func restoresChapterWithoutSelectingVerse() async throws {
         try await withStore { store in
             let (repository, _) = try fixture()
@@ -281,6 +430,51 @@ private actor NavigationDelayedCatalog: BibleCatalogRepository {
     }
     func finish() {
         pending?.resume(returning: [2, 3])
+        pending = nil
+    }
+}
+
+/// Delays `chapters(in:)` for one book until `finish()`; other calls pass
+/// through to the in-memory base.
+private actor SteppingDelayedCatalog: BibleCatalogRepository, BibleRepository {
+    let base: InMemoryBibleRepository
+    let delayedBookID: String
+    private var pending: CheckedContinuation<Void, Never>?
+    private var waiter: CheckedContinuation<Void, Never>?
+
+    init(base: InMemoryBibleRepository, delayedBookID: String) {
+        self.base = base
+        self.delayedBookID = delayedBookID
+    }
+
+    func books() async throws -> [BibleBook] { try await base.books() }
+
+    func chapters(in bookID: String) async throws -> [Int] {
+        if bookID == delayedBookID {
+            await withCheckedContinuation {
+                pending = $0
+                waiter?.resume()
+                waiter = nil
+            }
+        }
+        return try await base.chapters(in: bookID)
+    }
+
+    func verses(in bookID: String, chapter: Int) async throws -> [BibleVerse] {
+        try await base.verses(in: bookID, chapter: chapter)
+    }
+
+    func verse(at reference: BibleReference) async throws -> BibleVerse {
+        try await base.verse(at: reference)
+    }
+
+    func waitUntilStarted() async {
+        guard pending == nil else { return }
+        await withCheckedContinuation { waiter = $0 }
+    }
+
+    func finish() {
+        pending?.resume()
         pending = nil
     }
 }

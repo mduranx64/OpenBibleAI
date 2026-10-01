@@ -20,6 +20,17 @@ public struct BibleBook:
     public let name: String
     public let canonicalOrder: Int
 
+    public enum Testament: Hashable, Sendable, CaseIterable {
+        case old
+        case new
+    }
+
+    /// Derived from `canonicalOrder` for the bundled 66-book protocanon:
+    /// books 1–39 are the Old Testament and 40–66 the New Testament.
+    public var testament: Testament {
+        canonicalOrder <= 39 ? .old : .new
+    }
+
     public init(
         bookID: String,
         name: String,

@@ -24,6 +24,18 @@ struct BibleBookTests {
         #expect(book.id == "GEN")
     }
     
+    @Test(arguments: [
+        (1, BibleBook.Testament.old),
+        (39, .old),
+        (40, .new),
+        (66, .new)
+    ])
+    func testamentFollowsCanonicalOrder(order: Int, expected: BibleBook.Testament) throws {
+        let book = try BibleBook(bookID: "B\(order)", name: "Book \(order)", canonicalOrder: order)
+
+        #expect(book.testament == expected)
+    }
+
     @Test(arguments: ["", " ", "\n\t"])
     func rejectsBlankBookID(_ bookID: String) {
         #expect(throws: BibleBook.ValidationError.blankBookID) {

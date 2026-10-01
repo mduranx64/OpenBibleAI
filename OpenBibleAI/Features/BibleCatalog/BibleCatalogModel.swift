@@ -197,6 +197,15 @@ final class BibleCatalogModel {
         return chapters[nextIndex]
     }
 
+    /// Chapter numbers for any book, without changing the published
+    /// chapter-list state (used to step across book boundaries).
+    func chapterNumbers(in bookID: String) async throws -> [Int] {
+        try Task.checkCancellation()
+        let chapters = try await repository.chapters(in: bookID)
+        try Task.checkCancellation()
+        return chapters
+    }
+
     func isAvailable(
         _ position: ReadingPosition
     ) async throws -> Bool {

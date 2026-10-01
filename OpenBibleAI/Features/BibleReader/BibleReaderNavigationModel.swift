@@ -119,6 +119,101 @@ final class BibleReaderNavigationModel {
         savePosition()
     }
 
+    // MARK: Stepping
+
+    var canGoToPreviousChapter: Bool { canStep(forward: false) }
+    var canGoToNextChapter: Bool { canStep(forward: true) }
+
+    /// Previous chapter, crossing into the previous book's last chapter.
+    func goToPreviousChapter() async { await step(forward: false) }
+
+    /// Next chapter, crossing into the next book's first chapter.
+    func goToNextChapter() async { await step(forward: true) }
+
+    /// Selects the neighbouring verse in the loaded chapter. With no verse
+    /// selected, a forward step selects the first verse. Stops at the edges.
+    func selectAdjacentVerse(_ offset: Int) {
+        guard let selectedChapter,
+              case let .loaded(bookID, chapter, verses) = catalog.versesState,
+              bookID == selectedChapter.bookID, chapter == selectedChapter.chapter,
+              !verses.isEmpty
+        else { return }
+
+        let target: BibleVerse
+        if let selectedReference,
+           let index = verses.firstIndex(where: { $0.reference == selectedReference }) {
+            let newIndex = index + offset
+            guard verses.indices.contains(newIndex) else { return }
+            target = verses[newIndex]
+        } else {
+            guard let edge = offset >= 0 ? verses.first : verses.last else { return }
+            target = edge
+        }
+        selectVerse(target.reference)
+    }
+
+    /// Enabled when a neighbour exists in the loaded chapter list or an
+    /// adjacent book exists. Books with no chapters (incomplete datasets) are
+    /// skipped when stepping, so this can be optimistic for them.
+    private func canStep(forward: Bool) -> Bool {
+        guard let current = selectedChapter else { return false }
+        let neighbour = forward
+            ? catalog.nextChapter(in: current.bookID, after: current.chapter)
+            : catalog.previousChapter(in: current.bookID, before: current.chapter)
+        if neighbour != nil { return true }
+        guard case let .loaded(books) = catalog.state,
+              let index = books.firstIndex(where: { $0.bookID == current.bookID })
+        else { return false }
+        return forward ? index < books.index(before: books.endIndex) : index > books.startIndex
+    }
+
+    private func step(forward: Bool) async {
+        guard let current = selectedChapter else { return }
+        let startGeneration = generation
+        // A user selection or search during a lookup bumps `generation`.
+        func isCurrent() -> Bool {
+            startGeneration == generation && selectedChapter == current
+        }
+
+        do {
+            let chapters: [Int]
+            if case let .loaded(bookID, loaded) = catalog.chaptersState, bookID == current.bookID {
+                chapters = loaded
+            } else {
+                chapters = try await catalog.chapterNumbers(in: current.bookID)
+                guard isCurrent() else { return }
+            }
+
+            let withinBook = forward
+                ? chapters.first { $0 > current.chapter }
+                : chapters.last { $0 < current.chapter }
+            if let withinBook {
+                selectChapter(withinBook, in: current.bookID)
+                return
+            }
+
+            guard case let .loaded(books) = catalog.state,
+                  let index = books.firstIndex(where: { $0.bookID == current.bookID })
+            else { return }
+            let candidates = forward
+                ? Array(books[books.index(after: index)...])
+                : Array(books[..<index].reversed())
+
+            for book in candidates {
+                let bookChapters = try await catalog.chapterNumbers(in: book.bookID)
+                guard isCurrent() else { return }
+                if let target = forward ? bookChapters.first : bookChapters.last {
+                    selectChapter(target, in: book.bookID)
+                    return
+                }
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            Self.logger.error("Could not step to an adjacent chapter: \(String(describing: error))")
+        }
+    }
+
     func restoreReadingPosition() async {
         guard !hasAttemptedPositionRestore, selectedBookID == nil,
               selectedChapter == nil, case .loaded = catalog.state else { return }
