@@ -61,6 +61,26 @@ extension ModelManifest {
     )
 }
 
+extension ModelManifest {
+    /// Multilingual embedding model for semantic verse search (optional download).
+    /// Recorded 2026-10-01; Apache-2.0.
+    public static let qwen3Embedding = ModelManifest(
+        repository: "mlx-community/Qwen3-Embedding-0.6B-4bit-DWQ",
+        revision: "6c3ae70858513f1a78e9cdca3cae330d9075cd2a",
+        files: [
+            File(name: "added_tokens.json", size: 707, sha256: "c0284b582e14987fbd3d5a2cb2bd139084371ed9acbae488829a1c900833c680"),
+            File(name: "config.json", size: 937, sha256: "e7dfa5b73fb2a03cbc8fb40c394e95b99f03348e237f7f28e7a1daf56a2169bb"),
+            File(name: "merges.txt", size: 1_671_853, sha256: "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"),
+            File(name: "model.safetensors", size: 335_296_756, sha256: "3d773d5ee582eda445daeee23f7a2b76124011796df244ddb45e22638fdb7cde"),
+            File(name: "model.safetensors.index.json", size: 49_770, sha256: "90d82744cdb6b7d093f0b812fc21a49b6ffa9d0084a45428f0cfd01eb4adbe12"),
+            File(name: "special_tokens_map.json", size: 613, sha256: "76862e765266b85aa9459767e33cbaf13970f327a0e88d1c65846c2ddd3a1ecd"),
+            File(name: "tokenizer.json", size: 11_423_705, sha256: "def76fb086971c7867b829c23a26261e38d9d74e02139253b38aeb9df8b4b50a"),
+            File(name: "tokenizer_config.json", size: 5_404, sha256: "443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0"),
+            File(name: "vocab.json", size: 2_776_833, sha256: "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"),
+        ]
+    )
+}
+
 extension MLXModelTier {
     public var manifest: ModelManifest {
         switch self {

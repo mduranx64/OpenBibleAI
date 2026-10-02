@@ -128,7 +128,7 @@ struct LocalModelStoreTests {
 
     @Test
     func pinnedManifestsAreComplete() {
-        for manifest in [ModelManifest.qwen3_1_7B, ModelManifest.qwen3_0_6B] {
+        for manifest in [ModelManifest.qwen3_1_7B, ModelManifest.qwen3_0_6B, ModelManifest.qwen3Embedding] {
             #expect(manifest.revision.count == 40)
             #expect(manifest.files.contains { $0.name == "model.safetensors" })
             #expect(manifest.files.contains { $0.name == "tokenizer.json" })

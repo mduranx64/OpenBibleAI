@@ -12,7 +12,7 @@ import Tokenizers
 /// A downloaded model run in-process with MLX Swift. Each question uses a new
 /// `ChatSession` with the shared system prompt as instructions; thinking is
 /// turned off and any leading `<think>` block is filtered out.
-public struct MLXModelProvider: AIProvider {
+public struct MLXModelProvider: AIProvider, AIPromptStreaming {
     /// Produces answer deltas for a prompt. Injected in tests.
     typealias DeltaStream = @Sendable (BibleStudyPrompt) -> AsyncThrowingStream<String, Error>
 
@@ -31,7 +31,13 @@ public struct MLXModelProvider: AIProvider {
     public func streamResponse(
         for request: BibleStudyRequest
     ) -> AsyncThrowingStream<String, Error> {
-        let deltas = makeDeltas(BibleStudyPrompt(request))
+        streamResponse(to: BibleStudyPrompt(request))
+    }
+
+    public func streamResponse(
+        to prompt: BibleStudyPrompt
+    ) -> AsyncThrowingStream<String, Error> {
+        let deltas = makeDeltas(prompt)
 
         return AsyncThrowingStream { continuation in
             let task = Task {

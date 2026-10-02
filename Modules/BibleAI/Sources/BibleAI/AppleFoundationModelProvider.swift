@@ -12,7 +12,7 @@ import FoundationModels
 /// Apple's on-device model (FoundationModels, iOS/macOS/visionOS 26+).
 /// Each question uses a new session: the shared system prompt becomes the
 /// session instructions and the user prompt is streamed.
-public struct AppleFoundationModelProvider: AIProvider {
+public struct AppleFoundationModelProvider: AIProvider, AIPromptStreaming {
     /// Produces cumulative snapshots for a prompt. Injected in tests.
     typealias SnapshotStream = @Sendable (BibleStudyPrompt) -> AsyncThrowingStream<String, Error>
 
@@ -29,7 +29,13 @@ public struct AppleFoundationModelProvider: AIProvider {
     public func streamResponse(
         for request: BibleStudyRequest
     ) -> AsyncThrowingStream<String, Error> {
-        let snapshots = makeSnapshots(BibleStudyPrompt(request))
+        streamResponse(to: BibleStudyPrompt(request))
+    }
+
+    public func streamResponse(
+        to prompt: BibleStudyPrompt
+    ) -> AsyncThrowingStream<String, Error> {
+        let snapshots = makeSnapshots(prompt)
 
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -59,7 +65,10 @@ public struct AppleFoundationModelProvider: AIProvider {
             return AsyncThrowingStream { continuation in
                 let task = Task {
                     do {
-                        let session = LanguageModelSession(instructions: prompt.system)
+                        let model = prompt.isContentTransformation
+                            ? SystemLanguageModel(guardrails: .permissiveContentTransformations)
+                            : SystemLanguageModel.default
+                        let session = LanguageModelSession(model: model, instructions: prompt.system)
                         let options = GenerationOptions(maximumResponseTokens: 1_024)
                         for try await snapshot in session.streamResponse(
                             to: prompt.user,
