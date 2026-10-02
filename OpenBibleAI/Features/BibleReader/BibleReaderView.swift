@@ -32,7 +32,16 @@ struct BibleReaderView: View {
     @State private var bookFilter = ""
     /// A verse opened from the chat (citation or source); it is shown in
     /// the reader but not attached to the next question.
-    @State private var openedFromChat: BibleReference?
+    /// The selection revision produced by opening a verse from the chat
+    /// (citation or source); that selection is shown but not attached.
+    @State private var chatOpenRevision: Int?
+
+    /// Changes on every verse selection, including choosing the same verse
+    /// again, and when the selected verse's chapter finishes loading.
+    private struct VerseSelection: Equatable {
+        let revision: Int
+        let reference: BibleReference?
+    }
 
     private typealias ChapterSelection = BibleReaderNavigationModel.ChapterSelection
     private var selectedBookID: String? { navigation.selectedBookID }
@@ -127,15 +136,11 @@ struct BibleReaderView: View {
             navigation.cancelSearch()
             textSearchModel.cancel()
         }
-        .onChange(of: activeReference) { _, reference in
-            // A verse you choose attaches to the next chat question; a verse
-            // opened from the chat only shows in the reader.
-            guard let reference else { return }
-            if reference == openedFromChat {
-                openedFromChat = nil
-                return
-            }
-            openedFromChat = nil
+        .onChange(of: VerseSelection(revision: navigation.selectionRevision, reference: activeReference)) { _, selection in
+            // A verse you choose attaches to the next chat question (again
+            // after ✕ when chosen again); a verse opened from the chat only
+            // shows in the reader.
+            guard let reference = selection.reference, selection.revision != chatOpenRevision else { return }
             let chapterVerses = loadedChapterVerses(for: reference)
             guard let verse = chapterVerses.first(where: { $0.reference == reference }) else { return }
             chatModel.attach(
@@ -426,8 +431,8 @@ struct BibleReaderView: View {
     }
 
     private func openFromChat(_ reference: BibleReference) {
-        openedFromChat = reference == activeReference ? nil : reference
         navigation.open(reference)
+        chatOpenRevision = navigation.selectionRevision
     }
 
     private func selectChapter(_ chapter: Int, in bookID: String) {

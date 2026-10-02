@@ -65,6 +65,9 @@ final class BibleChatUITests: XCTestCase {
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: chip(in: app))
         XCTAssertEqual(XCTWaiter.wait(for: [gone], timeout: 10), .completed, "✕ removes the attached verse")
         XCTAssertTrue(app.textFields["chatInputField"].exists)
+
+        app.buttons["verse-1JO-2-1"].click()
+        expectChip("1 John 2:1", in: app)
         app.terminate()
     }
 
