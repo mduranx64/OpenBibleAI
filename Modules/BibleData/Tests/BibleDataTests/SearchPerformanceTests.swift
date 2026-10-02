@@ -104,6 +104,27 @@ struct SearchPerformanceTests {
             )
         }
 
+        // Ranked passage search: first call builds the BM25 index.
+        let rankedBuildStart = loadClock.now
+        _ = try await repository.rankedVerses(matching: ["jesus", "born", "bethlehem"], limit: 20)
+        let rankedBuildMS = Self.milliseconds(loadClock.now - rankedBuildStart)
+        var rankedDurations: [Double] = []
+        for _ in 0..<Self.measuredRuns {
+            let start = loadClock.now
+            let ranked = try await repository.rankedVerses(
+                matching: ["jesus", "blind", "sight", "eyes", "opened", "healed"], limit: 20
+            )
+            _ = try await repository.passages(
+                around: ranked.map(\.reference), window: 2, limit: 6, characterBudget: 6_000
+            )
+            rankedDurations.append(Self.milliseconds(loadClock.now - start))
+        }
+        rankedDurations.sort()
+        rows.append(
+            "ranked passages: index build (first call) \(Self.format(rankedBuildMS)) ms, "
+            + "query+passages median \(Self.format(rankedDurations[rankedDurations.count / 2])) ms"
+        )
+
         let memoryAfterSearches = Self.footprintMB()
 
         // A second full round: footprint that only plateaus (allocator

@@ -11,7 +11,8 @@ import BibleDomain
 public struct JSONBibleRepository:
     BibleRepository,
     BibleCatalogRepository,
-    BibleTextSearchRepository
+    BibleTextSearchRepository,
+    BiblePassageSearchRepository
 {
     private let base: InMemoryBibleRepository
 
@@ -79,6 +80,27 @@ public struct JSONBibleRepository:
         limit: Int
     ) async throws -> BibleTextSearchResult {
         try await base.search(query, limit: limit)
+    }
+
+    public func rankedVerses(
+        matching terms: [String],
+        limit: Int
+    ) async throws -> [RankedVerse] {
+        try await base.rankedVerses(matching: terms, limit: limit)
+    }
+
+    public func passages(
+        around references: [BibleReference],
+        window: Int,
+        limit: Int,
+        characterBudget: Int
+    ) async throws -> [BiblePassage] {
+        try await base.passages(
+            around: references,
+            window: window,
+            limit: limit,
+            characterBudget: characterBudget
+        )
     }
 
     public enum LoadError: Error, Equatable, Sendable {

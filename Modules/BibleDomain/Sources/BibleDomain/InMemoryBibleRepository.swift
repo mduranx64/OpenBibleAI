@@ -5,15 +5,20 @@
 //  Created by Miguel Duran on 27-09-26.
 //
 
+import Foundation
+
 public struct InMemoryBibleRepository:
     BibleRepository,
     BibleCatalogRepository,
-    BibleTextSearchRepository
+    BibleTextSearchRepository,
+    BiblePassageSearchRepository
 {
     private let versesByReference: [BibleReference: BibleVerse]
     private let orderedBooks: [BibleBook]
     /// Verses in canonical reading order, so text search can scan once.
     private let versesInReadingOrder: [BibleVerse]
+    /// Built on first ranked search (≈ a fraction of a second), then reused.
+    private let rankedIndex = LazyRankedIndex()
 
     public init(
         verses: [BibleVerse],
@@ -120,5 +125,73 @@ public struct InMemoryBibleRepository:
 
     public enum LookupError: Error, Equatable, Sendable {
         case verseNotFound(BibleReference)
+    }
+
+    // MARK: - Passage search
+
+    @concurrent
+    public func rankedVerses(
+        matching terms: [String],
+        limit: Int
+    ) async throws -> [RankedVerse] {
+        try Task.checkCancellation()
+        let index = rankedIndex.value(building: versesInReadingOrder)
+        try Task.checkCancellation()
+        return index.search(terms: terms, limit: limit)
+    }
+
+    @concurrent
+    public func passages(
+        around references: [BibleReference],
+        window: Int,
+        limit: Int,
+        characterBudget: Int
+    ) async throws -> [BiblePassage] {
+        struct Span { let bookID: String; let chapter: Int; var lower: Int; var upper: Int }
+
+        var spans: [Span] = []
+        for reference in references where versesByReference[reference] != nil {
+            let lower = reference.verse - window
+            let upper = reference.verse + window
+            if let index = spans.firstIndex(where: {
+                $0.bookID == reference.bookID && $0.chapter == reference.chapter
+                    && lower <= $0.upper + 1 && upper >= $0.lower - 1
+            }) {
+                spans[index].lower = min(spans[index].lower, lower)
+                spans[index].upper = max(spans[index].upper, upper)
+            } else if spans.count < limit {
+                spans.append(Span(bookID: reference.bookID, chapter: reference.chapter, lower: lower, upper: upper))
+            }
+        }
+
+        var passages: [BiblePassage] = []
+        var used = 0
+        for span in spans {
+            try Task.checkCancellation()
+            let verses = (max(1, span.lower)...max(1, span.upper)).compactMap { number in
+                (try? BibleReference(bookID: span.bookID, chapter: span.chapter, verse: number))
+                    .flatMap { versesByReference[$0] }
+            }
+            let passage = BiblePassage(bookID: span.bookID, chapter: span.chapter, verses: verses)
+            guard passages.isEmpty || used + passage.characterCount <= characterBudget else { break }
+            used += passage.characterCount
+            passages.append(passage)
+        }
+        return passages
+    }
+}
+
+/// Thread-safe, build-once holder for the keyword index.
+private final class LazyRankedIndex: @unchecked Sendable {
+    private let lock = NSLock()
+    private var index: RankedVerseIndex?
+
+    func value(building verses: [BibleVerse]) -> RankedVerseIndex {
+        lock.withLock {
+            if let index { return index }
+            let built = RankedVerseIndex(verses: verses)
+            index = built
+            return built
+        }
     }
 }
