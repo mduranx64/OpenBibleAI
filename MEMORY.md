@@ -1,0 +1,227 @@
+# OpenBibleAI — Project Checkpoint
+
+Last verified: **2026-09-30**. This document preserves project context for new chats; verify the current checkout before relying on its Git or test snapshot.
+
+## Working agreement
+
+Miguel selected **implement and explain**: Codex edits and tests small feature slices and explains the reasoning at meaningful milestones. Earlier work used manual red/green teaching turns; waiting for each manual edit is no longer the default. Keep the explanations and milestone commit checkpoints.
+
+The handoff belongs inside this repository and should be versionable. No new chat, commit, push, history rewrite, or feature implementation was requested as part of preparing it.
+
+## Verified source baseline
+
+- Latest implementation commit: `2623655` — `Decouple ReadingPositionStore from UserDefaults`.
+- On 2026-09-30 (checkpoint refresh), `main` was one commit ahead of its local `origin/main` reference (`1f60e8f`). The only working-tree changes were documentation: modified README and untracked AGENTS.md, MEMORY.md, ROADMAP.md, and docs/. No fetch was used to establish remote-server state.
+- Xcode 27.0 (`27A266a`), Apple Swift 6.4, macOS 27.0 on Apple Silicon.
+- All three packages require Swift tools 6.4. App settings include Swift 6 language mode, Approachable Concurrency, and default MainActor isolation. Do not infer identical settings for every test target.
+- The Xcode project definition is `OpenBibleAI.xcodeproj/project.xcproj`, not `project.pbxproj`.
+- The actual catalog-model location is `OpenBibleAI/Features/BibleCatalog/BibleCatalogModel.swift`.
+
+## Completed milestones
+
+| Commit | Milestone |
+|---|---|
+| `87c1f06` | Ollama model-selection settings; earlier foundations already include domain validation, repositories, streaming, caching, and timeout handling |
+| `caa82f5` | Book catalog and book/chapter/verse navigation |
+| `6484fd6` | Complete KJV import and book metadata loading |
+| `efa83c1` | Full chapters with selectable verses for AI study |
+| `f7dc603` | Previous/Next chapter navigation within the selected book |
+| `07c9931` | Save and restore the last reading chapter |
+| `749b1fd` | Exact-reference parser (BibleDomain) and cancellable stored-verse lookup model |
+| `1f60e8f` | Reference search UI and `BibleReaderNavigationModel` integration, with UI tests |
+| `2623655` | `ReadingPositionStorage` protocol; tests use an in-memory fake instead of UserDefaults suites |
+
+The reader displays full chapters and scrolls to a verse selected from the sidebar. A reference field (e.g. `John 3:16`) opens the chapter and selects the verse through the same navigation owner. Selecting a book clears chapter/verse selection; selecting a chapter clears verse selection and saves the new position. Previous/Next uses available chapter numbers and stops at the book boundaries.
+
+Restoration saves only book ID and chapter, under `bible.readingPosition`, through `ReadingPositionStore` over the `ReadingPositionStorage` protocol (`UserDefaults.standard` in the app). It validates persisted values and their availability, leaves unusable data at normal book selection, and checks after suspension that the user has not already navigated. A selected verse or scroll position is not restored.
+
+## Decisions and rationale
+
+- Verse lookup and catalog browsing have separate protocols, allowing the app to cache verse lookup without expanding the caching decorator into a catalog implementation.
+- Book names and canonical order are explicit metadata; available chapters/verses come from the actual verse dataset.
+- The active translation is KJV `eng-kjv2006`, not the initially considered World English Bible. Bundled files contain 66 books and 31,102 verses. Preserve the publisher's IDs and wording.
+- JSON decoders construct validated domain values; duplicate references and duplicate catalog IDs are rejected by the appropriate data loader.
+- Book, chapter-list, verse-list, selected-verse, and AI-response states are distinct. Generation guards and matching identities prevent outdated results from appearing under new selections.
+- Ollama uses a provider factory for each question, so a model change applies to the next request. The selected model is not currently persisted across launches.
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for the architecture, commands, data hashes, and source information.
+
+## Verification evidence
+
+Fresh automated runs during the checkpoint refresh on 2026-09-30, against `2623655` (documentation-only working-tree changes):
+
+| Run | Result |
+|---|---|
+| BibleDomain package | 33 tests in 7 suites passed |
+| BibleData package | 12 tests in 2 suites passed |
+| BibleAI package | 14 tests in 7 suites passed |
+| App unit tests, `AllUnitTests` scheme filtered to `OpenBibleAITests`, native macOS | 56 passed, zero failed/skipped (result bundle reports 67 passes including parameterized executions) |
+| Bundled resources | `kjv-books.json` and `kjv-verses.json` SHA-256 match the recorded values; no resource changes since `6484fd6` |
+
+Total: **115 reported tests passed**. Package runs used separate scratch build directories; the app run used ad-hoc signing overrides and a separate derived-data directory. Commands are in the development guide; counts are a dated baseline, not a future acceptance quota. The earlier handoff baseline against `07c9931` was 84 tests (25/12/14/33).
+
+`ReferenceSearchUITests` were **not** rerun during this refresh; their last recorded pass is 2/2 at 18:19 (see the UI-test investigation below). Live Ollama inference was not exercised.
+
+Miguel separately reported passing manual checks for full KJV browsing, verse selection, live AI study, long-chapter scrolling, chapter boundaries, and quit/relaunch restoration. These were not repeated as live UI/Ollama checks during handoff inspection. No iOS/visionOS run, accessibility audit, release packaging, or live remote-service validation was established by the automated runs.
+
+## Known limitations and follow-ups
+
+- `Tools/BibleImport/convert_kjv.py` is tracked. The previously prepared `build_kjv_catalog.py` is **not** in the repository; the generated `Resources/kjv-books.json` is tracked. Do not document a nonexistent generator as a runnable command.
+- At the implementation baseline, the publisher notice existed only in ignored downloaded files. This handoff now records attribution, publisher notice information, source URLs, and hashes in the development guide; the original HTML is still not a tracked resource.
+- `.github/workflows/tests.yml` runs only BibleDomain on pushes to `main`; its `xcode-27` runner availability and remote CI result were not verified.
+- The graph generation observed during inspection was `2026-09-29T22:43:41Z`, predating recent milestones. Coverage reported stale/new files and some Swift parse gaps; current-source fallback was used. Refresh/check the graph before relying on it again.
+- Exact-reference search is complete and committed (`749b1fd`, `1f60e8f`). Text search and any search index remain unimplemented.
+- UI tests read and write the real `bible.readingPosition` unless run with a separate `BUNDLE_ID_PREFIX`; a launch-argument defaults suite was deferred.
+- The project declares more platforms than the macOS behavior verified here. Existing desktop-oriented UI and configuration are not evidence of mobile readiness.
+
+## Completed milestone — exact-reference parser/resolver (2026-09-30, committed in `749b1fd`)
+
+- Session started on `main` at `07c9931`, five commits ahead of the local `origin/main` reference. Existing changes were a modified README and untracked AGENTS.md, MEMORY.md, ROADMAP.md, and docs/. These were preserved; no fetch, commit, push, or branch change was performed.
+- Added `BibleReferenceParser.parse(_:books:)` in BibleDomain. It parses a full catalog name plus `chapter:verse`, resolves the supplied catalog's publisher ID, and constructs the existing validated `BibleReference`. No hardcoded book aliases or IDs are used by the implementation.
+- Syntax ignores name case and collapses whitespace (including tabs/newlines), permits spaces around `:` and leading zeros, and requires positive ASCII decimal positions fitting `Int`. Numbered and multiword names work. Abbreviations, ranges, chapter-only input, and multiple references are unsupported.
+- Structured errors distinguish invalid syntax, unknown names, and ambiguous catalog names; zero positions reuse `BibleReference.ValidationError`. Parsing does not establish verse availability: `John 999:999` can produce a reference that later lookup must reject.
+- The implementation is synchronous and stateless. App selection, persistence, JSON resources, repository contracts, and Ollama code were not edited.
+- Red: the new tests failed to compile because the parser API did not yet exist. Green: `swift test --package-path Modules/BibleDomain --scratch-path /tmp/openbible-reference-domain` passed **33 tests in 7 suites**, including eight new parser tests with parameterized syntax cases. SwiftPM required access to compiler caches outside the workspace sandbox.
+- Graph verification used generation `2026-09-30T17:48:28Z` initially, with later auto-refresh. Direct source reads covered reported Swift parse gaps in BibleBook (27), BibleReference (17), and InMemoryBibleRepository (37). New parser/test paths had matching metadata and no recorded gaps; this is best-effort coverage, not proof of graph completeness.
+- `git diff --check` and the changed/staged file review passed. Miguel later committed this slice with the lookup-state slice in `749b1fd`.
+- Verification boundary: only BibleDomain was freshly tested for this additive domain slice. App/UI, BibleData/BibleAI suites, and live Ollama were not rerun. The earlier 84-test baseline remains historical evidence.
+
+## Completed milestone — exact-reference lookup state (2026-09-30, committed in `749b1fd`)
+
+- After Miguel requested continuation, added `OpenBibleAI/Features/BibleSearch/BibleReferenceSearchModel.swift` and `OpenBibleAITests/BibleReferenceSearchModelTests.swift`.
+- The MainActor observable model publishes idle/loading/loaded/failed state with query identity. It loads catalog books, invokes the domain parser, and asks the separately injected verse repository for the stored verse. A returned reference must match the requested one before success is published.
+- Parse errors, missing stored verses, and repository errors produce feedback. The current JSON repository forwards `InMemoryBibleRepository.LookupError.verseNotFound`, which the model maps to an unavailable-verse message. Other repository errors remain failures with diagnostic text.
+- Generation guards protect both asynchronous boundaries and error completion. Task cancellation is checked before starting and after each await, including noncooperative repositories returning success or an unrelated error. Current cancellation settles to idle; an already-cancelled invocation leaves existing state untouched. `reset()` invalidates pending results immediately, but the caller still owns and cancels the task; reset does not stop dependency work.
+- Red: the new tests failed to compile before the model existed. Green: the documented macOS app-unit-test command, with `-derivedDataPath /tmp/openbible-reference-app`, passed **47 tests**, zero failed/skipped. This includes **14 new search tests**, with parameterized cases (53 executions reported for the device). Result bundle: `/tmp/openbible-reference-app/Logs/Test/Test-AllUnitTests-2026.09.30_15-03-39--0300.xcresult`.
+- Tests cover stored-verse success, invalid/unknown input without verse requests, missing verse and retry, catalog/verse failures, mismatched result identity, out-of-order catalog/verse success and failure, cancellation before entry/during each dependency, older cancellation after newer success, reset invalidation, and invalid input superseding an older success. Controlled continuations exercise ordering without sleeps. Existing reader/persistence app tests also passed.
+- Graph/source checks confirmed current model patterns and repository contracts. Swift parser coverage for BibleVerse line 15 was checked directly. New search files had matching graph metadata and no recorded gaps at generation `2026-09-30T18:02:33Z`; later edits were inspected directly.
+- Domain verification remains the fresh **33-test** parser milestone run above; no domain source changed in this second slice. The app build passed with existing nonfatal destination/host warnings. No UI automation, live Ollama inference, iOS/visionOS run, or separate BibleData/BibleAI suite rerun was performed.
+- No reader selection, saved-position representation, resource content, Ollama behavior, or app composition was changed. Both slices were later committed together in `749b1fd`. Changed-file and whitespace checks passed.
+
+## UI-test failure investigation (2026-09-30)
+
+- An Xcode run at 17:10 failed both `ReferenceSearchUITests` at line 11 (search field never found). Its accessibility dump had a menu bar but no window, and the screen recording showed Chrome frontmost. The app's saved window frame is on a second display (x = -1920). The feature code was not reached; no defect was found in the navigation, search, or view code.
+- Fresh CLI reruns against the same staged source passed **2/2** both with an overridden bundle prefix (`dev.openbibleai.search-tests`, fresh derived data) and with the real bundle ID (after hardening). One real-bundle run before hardening got through every feature assertion and failed only on `window.screenshot()` ("Image creation failed").
+- Test-only hardening: `ReferenceSearchUITests` now launches through a helper that calls `activate()` and fails with a clear "launched without a window" message, and the manual Psalm 119 screenshot attachment was removed (selection and `isHittable` are already asserted).
+- Limitation: the exact cause of the windowless 17:10 launch was not reproduced; it is attributed to the desktop environment (multi-display, frontmost Chrome), not proven. UI tests mutate the real `bible.readingPosition`; isolating it with a launch-argument defaults suite was deferred.
+- Recurred at 17:49 on the real bundle (`app.worldcitizen.OpenBibleAI`), same "launched without a window" failure on both tests. Fix applied: `launch(_:)` now sets `-ApplePersistenceIgnoreState YES` and `-NSQuitAlwaysKeepsWindows NO` before `app.launch()`, so macOS skips restoring the app's saved window state (suspected culprit: a saved frame off-screen at x = -1920 with three displays attached), and falls back to Cmd+N if no window appears within 5s. Same launch arguments added to the template `OpenBibleAIUITests.swift` tests. Verified: both `ReferenceSearchUITests` passed 2/2 via `RunSomeTests` after the change (2026-09-30 18:19).
+- Hygiene, fixed in `2623655`: `ReadingPositionStore` now depends on a `ReadingPositionStorage` protocol (`UserDefaults` conforms to it) instead of `UserDefaults` directly. Both `ReadingPositionStoreTests` and `BibleReaderNavigationModelTests` use a private in-memory `InMemoryReadingPositionStorage` fake instead of `UserDefaults(suiteName:)`, so no `BibleReaderNavigationTests.<UUID>.plist` files accumulate in the app container's Preferences anymore.
+
+## Milestone — text search (2026-09-30, implemented, NOT committed)
+
+- Rules agreed with Miguel: all words in any order, `"quoted phrase"` consecutive, whole-word, case/diacritic-insensitive, canonical order, minimum 2 letters, first 100 results plus total count. See ROADMAP item 2.
+- BibleDomain: `BibleTextQuery`, `BibleTextSearchResult`, separate `BibleTextSearchRepository` protocol; `InMemoryBibleRepository` conforms (verses pre-sorted into reading order at init, linear scan, cancellation checked every 1024 verses). `JSONBibleRepository` delegates.
+- App: `BibleTextSearchModel` (state idle/tooShort/loading/loaded/failed, generation guards, owned `submit`/`cancel` task), `AppModel.Repositories.text`, `.ready` now carries four models, `BibleReaderNavigationModel.open(_:)` shares an `apply` step with exact-reference search. Sidebar has a Reference | Text picker; text mode replaces Books/Chapters/Verses with results; choosing a result calls `open`. Existing `referenceSearch*` accessibility IDs unchanged.
+- Red/green: new tests failed to compile before each API existed. One fixture miscount (PSA 23:1 also contains "the") was a test error, fixed in the test.
+- Fresh runs: BibleDomain **47 tests/9 suites** (+14), BibleData **13** (+1), app unit tests **70** (+14: 10 model, 1 submit/cancel, 2 navigation `open`, 1 AppModel composition) via the documented macOS command with `-derivedDataPath /tmp/openbible-text-app`. UI: `TextSearchUITests` 1/1 and `ReferenceSearchUITests` 2/2 passed (native macOS, real bundled KJV). `git diff --check` clean. BibleAI suite was not rerun (untouched).
+- Not verified: performance of the linear scan on 31,102 verses (no measurements; roadmap item 3), VoiceOver/keyboard behavior of the results list, iOS/visionOS, live Ollama. UI tests still touch the real `bible.readingPosition`. Matched words are not highlighted. Graph tools were not used during implementation (an Explore agent and direct reads were used instead). Checked afterwards: the index auto-refreshed (generation `2026-10-01T01:28:08Z`, includes the new text-search files, `metadata_match`). Remaining parse gaps are all typed-throws lines (`throws(...)`): BibleTextQuery 17, InMemoryBibleRepository 88, plus the older BibleBook 27, BibleReference 17, BibleVerse 15, BibleStudyRequest 18, ReadingPosition 17. Read those lines directly.
+
+## Milestone — measured search performance (2026-10-01, implemented, NOT committed)
+
+- Baseline first (no production change): `SearchPerformanceTests` (BibleData, gated by `OPENBIBLE_BENCH=1`) and `SearchMainActorStallTests` (app, same gate). Release: ≈ 278 ms per search for every query (cost is per-verse tokenization), main-actor blocked for the whole search, load 85 ms (init/sort 41 ms), footprint 31 MB.
+- A first probe version showed 0.0 ms gaps because it read the heartbeat before yielding; that was a probe bug, fixed by yielding 20 ms after each search. The Release app run initially failed to load the test bundle (Team ID mismatch); `ENABLE_HARDENED_RUNTIME=NO` fixed it.
+- Fixes, each measured: (1) `@concurrent` on `InMemoryBibleRepository.search`, driven by a deterministic red test (`searchDoesNotBlockTheCallersMainActor`): stall ≈ 283 → ≈ 2.1 ms. (2) ASCII fast path in `BibleTextQuery.words(in:)`: latency ≈ 278 → ≈ 87 ms (p95 ≤ 89). Deviation from the plan: a cheaper tokenizer replaced the planned per-verse word cache, which would have moved ≈ 280 ms of work to launch and added memory. No index.
+- Equivalence: `SearchEquivalenceTests` compares search results with a reference matcher (original Foundation-folding rules) over all 31,102 verses for 13 queries; also `nonASCIIVerseTextMatchesFoldedQueries`.
+- Fresh runs: BibleDomain 49 tests, BibleData 15 (one gated benchmark skipped), app unit tests 71 (one gated probe skipped), `TextSearchUITests` + `ReferenceSearchUITests` 3/3, all on macOS. BibleAI not rerun (untouched).
+- Not verified/limits: one machine (M3 Max); Debug not re-measured after the fixes; iOS/visionOS and older hardware untested; 4,585 non-ASCII verses still use the slow path (next lever); init sort (41 ms of load) left alone since it is not a measured bottleneck. Footprint after searches is 38 MB (worker-thread allocator high-water mark; identical after a second round).
+
+## Milestone — AI study improvements (2026-10-01, implemented, NOT committed)
+
+- Decisions with Miguel: whole chapter as context, bounded (~6,000 characters); verse card + labelled generated answer.
+- BibleAI: `BibleStudyContext.verses(in:around:characterLimit:)` (whole chapter if it fits, else a contiguous window grown alternately around the selected verse; selected verse always included; other chapters/books ignored); `BibleStudyRequest` gains `bookName` and `context` (defaults keep old call sites; context from another chapter/book throws `.contextOutsideChapter`); `OllamaRequestFactory` prompt uses the full book name, a "Selected verse" block, a numbered "Chapter context" block with `>` marking the selected verse, and a system prompt that scopes context as background.
+- App: `StudyAssistantModel` gains `answerReference`, `answer(for:)`, `reset()` (bumps the generation so late chunks are dropped) and `ask(verse:bookName:chapterVerses:question:)`. `StudyAssistantView` shows a verse card, a "Generated explanation — not Scripture" label and an AI-generated caption, shows generated state only for the owning verse, and resets on appear. `BibleReaderView` passes the book name and the loaded chapter.
+- Red/green throughout (compile-failure red for each new API). BibleAI package went from 14 to 28 tests.
+- Fresh runs: BibleDomain 49, BibleData 15 (one gated benchmark skipped), BibleAI 28, app unit tests 76 (two gated tests skipped: stall probe, live smoke); UI: `StudyPanelUITests`, `TextSearchUITests`, `ReferenceSearchUITests` 4/4. All macOS.
+- Live check (separate from mocked tests): `LiveOllamaSmokeTests` on `qwen3.8:latest`, John 3:16 with all 36 chapter verses as context, completed in 24 s; the answer's quoted phrases match the KJV text. This is one real run, not evidence of general answer quality.
+- Not verified: answer accuracy/citations beyond that single read; very long chapters in a live run (Psalm 119 trimming is covered only by unit tests); behavior with other models; iOS/visionOS; VoiceOver for the new card/label. The UI test does not ask a question (that would need a live model); stale-answer handling is covered by model unit tests, not UI automation.
+- Working-tree note: `OpenBibleAI.xcodeproj/project.xcproj` shows an added `DEVELOPMENT_TEAM` line that this work did not intentionally make (probably Xcode). It is a local signing setting and must not be committed.
+
+## Milestone — navigation refresh (2026-10-01, implemented, NOT committed)
+
+- Decisions with Miguel: drill-down sidebar; keyboard shortcuts; location breadcrumb; cross-book Previous/Next (this replaced the earlier AGENTS.md rule about within-book boundaries; AGENTS.md updated).
+- Domain: `BibleBook.testament` derived from `canonicalOrder` (1–39 Old, 40–66 New; assumption of the bundled protocanon, no resource change).
+- Models: `BibleCatalogModel.chapterNumbers(in:)` (no published-state change); `BibleReaderNavigationModel.canGoToPrevious/NextChapter`, `goToPrevious/NextChapter()` (cross-book, skips books with no chapters, generation-guarded after each await), `selectAdjacentVerse(_:)`.
+- UI: book list grouped by testament with a filter field → chapter grid with "‹ Books" back button; sidebar verse list and `List(selection:)` removed (`deselectVerse()` now unused by the view, kept with tests); reading heading and content-column title show "Book Chapter"; bottom bar adds verse up/down buttons; shortcuts ⌘[ ⌘] ⌥↑ ⌥↓.
+- Fresh runs: BibleDomain 50, app unit tests 83 (+7 stepping/lookup tests), full UI suite 9/9 including new `SidebarNavigationUITests` and the updated chapter-boundary test (Genesis 1 / Revelation 22 ends; Genesis 50 Next enabled). Screenshots of both sidebar states were inspected.
+- Limits: `canGo…` is optimistic for books with no chapters (only possible in incomplete datasets; stepping skips them). iOS/visionOS layouts and VoiceOver beyond identifiers/traits are untested.
+
+## Milestone — on-device AI, Ollama removed (2026-10-01, implemented, NOT committed)
+
+- Decisions with Miguel: remove Ollama; Apple's FoundationModels first; fallback MLX Swift (chosen over LiteRT-LM after comparing: same OS minimums incl. visionOS, delta streaming, mature Swift API); Qwen3-1.7B-4bit, plus Qwen3-0.6B-4bit for 4 GB iPhones; explain-and-offer-download, no auto-download. Research facts came from the installed macOS 27 SDK, package sources and the Hugging Face API.
+- BibleAI: `BibleStudyPrompt` (prompt extracted unchanged), `AppleFoundationModelProvider`, `AppleModelStatus`, `StreamDeltaAccumulator`, `AIEngineError`, `MLXModelProvider`/`MLXModelEngine`, `ThinkBlockFilter`, `MLXModelTier` (memory tiers), `ModelManifest` (pinned revisions + SHA-256), `LocalModelStore` (+ `LocalModelStoring`), `AIEngineChoice`, `TransformersTokenizerLoader` (hand-written to avoid the MLXHuggingFace macro approval gate). Package platforms now macOS 14 / iOS 17 / visionOS 1; `mlx-swift-lm` exact 3.32.3, `swift-transformers` 1.3.x.
+- App: `AIEngineModel`, `AISettingsView` (macOS Settings + iOS sheet), study panel unavailable/download state, per-engine context limit in `StudyAssistantModel`, unload on background, `Credits.rtf` (About panel). Deleted: Ollama provider/catalog/model/chunk/request factory, HTTP streaming clients, `WithTimeout`, Ollama settings model/view, their tests and `LiveOllamaSmokeTests`.
+- Fresh runs: BibleAI 44 tests; app unit tests 85 (gated live tests skipped); full UI suite 9/9; builds for generic iOS and visionOS Simulator succeeded. Live (not mocked): Apple model on this Mac (available, contextSize 8192) streamed 21 deltas in 2.6 s; MLX 0.6B and 1.7B downloaded, verified, loaded (~1 s) and answered with no `<think>` text (see DEVELOPMENT.md). The 0.6B answer drifted beyond the verse.
+- Not verified: iPhone/iPad (memory limits, increased-memory-limit entitlement not added), visionOS hardware, Intel Mac message, download UI on a device without Apple Intelligence (covered by unit tests with a fake store only), memory usage numbers. Full license texts for MLX/swift-transformers belong in release prep (on hold).
+
+## Milestone — Ask the Bible (2026-10-01, implemented, NOT committed)
+
+- Decisions with Miguel: question box in the right AI panel; model-suggested keywords; embeddings now (Qwen3-Embedding 0.6B 4-bit, optional "Improve search" download, keyword retrieval always works); Spanish and other languages.
+- Evidence: Apple `NLEmbedding` rejected (matched question form, 287 s to embed). Golden recall without model keywords: keyword 5/12 vs semantic/hybrid 11/12 (256 = 512 → 256 shipped). Live (real models, this Mac): Apple + semantic answered all 6 test questions in the right language with nearly all citations grounded; Qwen3 1.7B improved to 4/6 fully grounded after bare-citation detection; Qwen3 0.6B weak (wrong facts, invented quotes — flagged by citation checks).
+- Fixes found by live runs: Apple guardrail false positive on "heal a blind person" in the keyword step (now `permissiveContentTransformations` for that step only); "verified" meant only "exists" (now grounded vs outside sources); answers in the wrong language / translated verses (explicit language + rule repeated next to the question); unbracketed citations (now detected).
+- Fresh runs: BibleDomain 67, BibleData 18, BibleAI 52, app unit 103 (gated tests skipped), UI 11 (1 gated live skipped), iOS + visionOS builds. Sidebar UI test now uses ⌘] instead of clicking Next (hit-testing failed with the window on a secondary display).
+- Limits: answer accuracy depends on the model (small MLX models often wrong); Spanish book names in citations are not resolved; partial ranges are strict (one missing verse marks the citation outside sources); embeddings Apple silicon only; app +16 MB; iPhone memory untested.
+
+## Milestone — Bible chat (2026-10-02, implemented, NOT committed)
+
+- Decisions with Miguel: a single chat replaces the panel picker, "Ask the Bible" and "This Verse"; a verse selected in the reader attaches as a removable chip for the next question; follow-ups remember recent turns; chats are saved with a list of past chats. Added by Miguel: a Delete button for downloaded Qwen models even when Apple's model is the engine.
+- BibleAI: `BibleQuestionPrompt` gains `Turn` history (most recent turns within a character budget, oldest dropped first, never cited), `FocusVerse` (attached verse + chapter window), and the keyword step sees the previous question, the start of the previous answer and the attached verse.
+- App: `BibleChatModel` (replaces `BibleQuestionModel`; same retrieval, plus the verses the previous answer cited as a fused ranking so follow-ups keep their passage), `ChatConversation`/`ChatMessage`/`ChatVerseRange` (Codable), `ChatStore` + `FileChatStore` (one JSON file per chat in Application Support/OpenBibleAI/Chats, schema version 1, unreadable or newer files skipped and kept) + `InMemoryChatStore`, `BibleChatView` + `ChatHistoryView`. `AIEngineModel.installedTiers` / `deleteModel(_:)` and a "Downloaded models" section in AI Settings. Deleted: `StudyAssistantModel`, `StudyAssistantView`, `BibleQuestionView`, the panel picker, `StudyAssistantModelTests`, `StudyPanelUITests`, `AskBibleUITests` (→ `BibleChatUITests`). The engine budget is shared: ≤ ⅓ history, ≤ ⅓ attached-verse chapter, the rest (≥ ⅓) passages.
+- Fresh runs: BibleDomain 67, BibleData 18, BibleAI 56, app unit 108 (gated tests skipped), UI 10 (1 gated live skipped), iOS + visionOS builds, `git diff --check` clean. The red/green check for carried citations was done by disabling that ranking (2 failures) and restoring it.
+- Live (real models, this Mac): the gated UI test asked two turns with Apple's model, opened a source (chat kept, no chip), relaunched and reopened the saved chat. `LiveAskBibleTests/conversationsKeepContextAcrossTurns` (+ semantic): Apple answered the English chain (Bethlehem → Herod → flight to Egypt) with every citation grounded after carrying cited verses (before: the third turn retrieved unrelated passages). Spanish follow-ups about attached John 3:16 retrieved John 3 but Apple answered from John 17/12 (right speaker, Nicodemus not named). Qwen3 1.7B: English chain correct (Matthew 2:15 outside its sources); Spanish follow-ups weak and cited with Spanish book names ("Juan 6:35"), which are not resolved.
+- UI tests: an Xcode debug session of the app (lldb attached) makes XCUITest fail with "Failed to terminate"; run with `BUNDLE_ID_PREFIX=dev.openbibleai.search-tests` (separate app and container) or stop the debug session.
+- Limits: long chats are not summarised (older turns drop out); `BibleReaderModel` still loads the selected verse though no view reads it now (left in place; remove separately if wanted); reselecting the same verse after removing its chip does not reattach it (select another verse first); chats are not synced.
+
+## Follow-up fixes (2026-10-02, committed d0e09c2 … 933f25f)
+
+- `d0e09c2` Re-selecting a verse after ✕ re-attaches it (reader reacts to `selectionRevision`; only the revision produced by opening from the chat is skipped). UI test red without the fix, green with it.
+- `ea02e87` `BibleReaderModel` removed (state `.ready` now has four models); AppModel test now checks the chat answers from the loaded repositories.
+- `ea30f45` + `5f4196f` Shared `XCUIApplication.launchForUITest(arguments:)`; on macOS it fails in ~0.3 s with instructions when a copy of the app is running under a debugger (checked live against an Xcode debug session: previously 60 s "Failed to terminate"). `ea30f45` broke building the UI tests for iOS (AppKit); `5f4196f` makes the check macOS-only. The UI tests never built for visionOS (`click()` is macOS-only); unchanged.
+- `933f25f` Rolling history summary: after an answer, turns beyond the history allowance are summarized in the background (limit min(600, budget/6), cut at a sentence end), stored as optional `historySummary`/`summarizedMessageCount` (old chats load), sent before recent turns; the keyword step also gets the summary and earlier questions (≤ 300 chars each). Discarded after New Chat/open; failure → trimming.
+- Fresh runs: BibleAI 60, app unit 108, UI 10 (1 gated skip), iOS + visionOS app builds, iOS UI-test build. Live (`longChatsRememberEarlyTurnsThroughTheSummary`, half budget): summaries created and folded on Apple and Qwen 1.7B; Apple kept "Aaron, Moses' brother" into turn 6, but neither model's keywords retrieved Exodus 32 for "what did that brother make…", so the final answer missed. At half budget answers were weaker than at full budget (fewer passages). An earlier run at a quarter budget showed a 600-char summary could crowd out all recent turns, which led to the budget-scaled limit.
+
+## Next task
+
+Items 1-4 are implemented. Item 4 (and the docs) are uncommitted; item 3 code is committed (`dd6f5f4`, `1f691dc`). Suggested commits for item 4: one for BibleAI (`BibleStudyContext`, request, prompt, tests), one for app/UI (model, view, reader wiring, tests, live smoke test), docs separate, excluding the `project.xcproj` signing line.
+
+On 2026-10-01, three raster app-icon concepts were generated in the selected luminous Bible direction and saved under `Design/AppIconConcepts/` as 1024 × 1024 PNGs, with a browser comparison page showing 32/64/128 px and rounded/circular previews. The source image-generation tool returned 1254 × 1254 PNGs, which were resized for review. The comparison page loaded all images in a local browser. No asset catalog or Xcode configuration was changed; the visual direction still needs selection and platform production work. Prompt text is in `Design/AppIconConcepts/PROMPTS.md`.
+
+Miguel then requested the same images with a hand holding the Bible. Three sibling `*-hand.png` edits were generated, preserving the original images. `Design/AppIconConcepts/compare-hands.html` displays each edit with its original, small-size previews, and rounded/circular masks. All 21 images on that page loaded in a local browser; the Bible and supporting palm remained visible in the mask previews. The hand-held images are 1024 × 1024 raster concepts; no platform icon assets or Xcode wiring were changed.
+
+For Bible + AI exploration, three edits of the hand-held First Light concept were saved as `*-ai-constellation.png`, `*-ai-branch.png`, and `*-ai-pixels.png`, with a `compare-ai.html` page. The constellation is the clearest AI cue; the branching beam can read as a sprout. A fourth sparkle concept was discarded because it resembled a cross. All 24 images on the AI comparison page loaded in a local browser. These are visual design studies, not production icon assets.
+
+Miguel requested a hologram style for 03 Sculpted Book. `03-sculpted-book-hand-hologram.png` preserves the supporting hand and angled book while replacing the ivory pages with translucent cyan projected pages and retaining a warm center glow. `compare-hologram.html` shows the original and hologram at 32/64/128 px and in rounded/circular masks; all 12 images loaded in a local browser. The hologram version remains a raster concept, not layered or installed as an app icon.
+
+Miguel then requested a holographic hand and a stronger robotic/binary appearance. Three sibling concepts were saved: `03-sculpted-book-hologram-binary-hand.png` (wireframe projected human hand), `03-sculpted-book-hologram-robot-hand.png` (graphite robot hand), and `03-sculpted-book-hologram-robot-projection.png` (projected robot hand). `compare-hologram-binary.html` shows these beside the previous hologram with small-size and mask previews; all 24 images loaded in a local browser. Binary glyphs are generated illustration, not validated 0/1 typography; redraw them for production. No Xcode assets were changed.
+
+Miguel selected the all-hologram human-hand direction for simplification. `03-sculpted-book-hologram-clean.png` reduces the wireframe/binary to smooth pages and hand plus three small 0/1 light marks; `03-sculpted-book-hologram-minimal.png` reduces it further to broad pages, one hand silhouette, and a warm fold. `compare-hologram-simple.html` compares both to the detailed source at 32/64/128 px and under rounded/circular masks. All 18 images loaded in a local browser. At 32 px Minimal has the strongest book silhouette, but its hand is more abstract; Clean preserves a clearer hand and AI cue. No platform icon assets were installed.
+
+Miguel supplied a cyan network/hologram stock illustration as a style reference. `03-sculpted-book-hologram-network-style.png` reinterprets the Minimal Bible-and-hand composition with cyan connected nodes and small projection rings, without reproducing the reference's globe or watermark. `compare-network-style.html` compares it to Minimal at 32/64/128 px and in rounded/circular masks; all 12 images loaded in a local browser. The book remains recognizable at 32 px, though fine node lines need simplification for production. The stock reference file was not copied into the project.
+
+Miguel then supplied the detailed holographic hand-and-Bible image again and requested that its pose and proportions stay the same while the treatment gain more lines and look more 2D. `03-sculpted-book-hologram-2d-lines.png` is a 1024 × 1024 raster edit of that composition, with dense connected cyan lines and nodes on the hand and pages and reduced solid shading. `compare-2d-lines.html` puts it beside the original detailed hologram at 32/64/128 px and in rounded/circular masks; all 12 preview images loaded in the local browser. The style reference was used only for line language; its globe and watermark were not copied. This is still concept art, not a layered or installed platform icon.
+
+Miguel then asked to simplify that exact 2D network-line version. `03-sculpted-book-hologram-2d-lines-simple.png` retains the book-and-hand pose but reduces the page-edge bands, connected nodes, and floating binary. `compare-2d-lines-simple.html` presents both at 32/64/128 px and in rounded/circular masks; all 12 preview images loaded in the local browser. It remains 1024 × 1024 raster concept art, not an installed icon.
+
+Miguel asked for a simpler and more elegant version. `03-sculpted-book-hologram-elegant.png` reduces the previous icon to smooth cyan page and hand outlines, a central glow, and a three-point connected-light cue. `compare-elegant.html` compares it with the previous version at 32/64/128 px and in rounded/circular masks; all 12 preview images loaded in the local browser. This remains 1024 × 1024 raster concept art, not an installed icon.
+
+Miguel observed that the elegant Bible still hovered above the hand. `03-sculpted-book-hologram-held.png` raises and curls the palm, thumb, and fingers to contact the lower cover and spine while retaining the open pages, cyan outline style, and three-point AI cue. `compare-held.html` compares this version with the prior floating composition at 32/64/128 px and in rounded/circular masks; all 12 preview images loaded in the local browser. The hold was visually inspected in the 32 px and mask previews. It remains raster concept art, not an installed icon.
+
+Miguel then supplied the original detailed holographic Bible-and-cupped-hand image again and requested it in the latest elegant style. `03-sculpted-book-original-pose-elegant-style.png` combines the original wider curved Bible and natural palm-up hand with clean cyan contours, sparse page bands, and a small three-point AI cue. `compare-original-pose-elegant.html` presents the source composition, last held style, and combined result with small-size previews; all 12 images loaded in the local browser. The image is 1024 × 1024 raster concept art, not an installed icon.
+
+Miguel selected that version for the project. `OpenBibleAI/Assets.xcassets/AppIcon.appiconset/` now contains the selected 1024 × 1024 PNG plus the macOS size variants; its universal iOS slot covers iPhone/iPad. `OpenBibleAI/Assets.xcassets/AppIconVision.solidimagestack/` contains a transparent Bible-and-hand foreground and opaque midnight-blue background generated from the selected design. The Xcode project selects `AppIconVision` for visionOS SDKs and `AppIcon` for macOS/iOS. `Design/AppIconConcepts/compare-installed.html` previews both treatments at small sizes and masks; all 12 images loaded and the composition was visually inspected in the local browser. These are raster layers, not editable vector source.
+
+Verification on 2026-10-01: a fresh macOS `OpenBibleAI` build succeeded with the icon installed. Direct `actool` compilation succeeded for `iphonesimulator` with iPhone and iPad `AppIcon` renditions, and for `xrsimulator` with an `AppIconVision` solid image stack. Full iOS and visionOS app builds did not succeed for unrelated existing source compatibility errors: `BibleAI/OllamaProvider.swift` uses `Duration` with a package iOS deployment level below 16, and `OpenBibleAIApp.swift` declares a SwiftUI `Settings` scene unavailable on visionOS. No device or simulator app UI check was performed on those platforms. The icon assets are compiled, but this does not establish full iOS/visionOS app support.
+
+Next per the roadmap: **5. Release preparation** (tracked catalog-generation script, CI expansion, accessibility/keyboard/VoiceOver validation, platform selection, distribution review, limitations). This is mostly verification and process work; confirm scope with Miguel before starting.
+
+## Milestone — installable Bible versions, comparison, es/pt-BR localization (2026-10-02, committed)
+
+- Decisions with Miguel: no bundled Bible; first-launch onboarding to download versions hosted as GitHub release assets; aligned-column comparison of 2–4 versions; the full chat (keywords, BM25, semantic index, citations) in any installed version, with each version's embedding index downloaded with it; String Catalog with Spanish and Brazilian Portuguese. Build first, then ask for licenses; ship public-domain versions now.
+- Licensing found (web, 2026-10-02): RVR1960 is © Sociedades Bíblicas Unidas, administered by the American Bible Society (fair use stops at 500 verses; licensing@americanbible.org). Modern Almeida (ARC/ACF) is © SBB/SBTB. Reina-Valera 1909 is public domain on eBible.org (`spaRV1909`, same VPL format and book IDs as the KJV). Almeida 1911 is public domain, but no source of verified provenance was found (CrossWire withdrew its module; the Aionian copy is edited), so it was **not** built.
+- Domain/data: `BibleVersion`; `TextAnalyzer` (English rules unchanged, Spanish/Portuguese stopwords + light stemmer) used by `RankedVerseIndex`/`InMemoryBibleRepository(language:)`; `BibleVersionPackage.load` (version/books/verses JSON + optional `embeddings.bin`). `ModelManifest` gained hosts (`gitHubRelease`, `baseURL`) so Bible packages reuse `LocalModelStore`.
+- App: `BibleLibraryModel` (pinned catalog, install/cancel/delete with active/last-version protection, active version, cached loading, locale suggestion), `AppModel` `.needsVersion`/`.ready(Session)` + `switchVersion`, one app-lifetime chat that answers from the reading version and records `versionID` per answer (old chats = KJV), `BibleQuestionPrompt.SearchProfile`, `SemanticSearchModel.useIndex`, `BibleCompareModel`/`BibleCompareView`, version and compare toolbar menus, Manage Bibles sheet, onboarding. Data moved from `Resources/` to `Bibles/kjv/` (books/verses/embeddings/version), no longer in the app target. Converter generalized to `convert_vpl.py` (byte-identical KJV output; RV1909 skips 18 empty KJV-numbered slots) plus `make_release.py`.
+- UI tests install Bibles through the real download path from `UITestBibleServer` (localhost, runner given `ENABLE_INCOMING_NETWORK_CONNECTIONS`), with a generated `test-es` package (KJV text, Spanish book names) for switching/comparison. Compare columns are reset per UI-test launch.
+- Fresh runs (macOS, M3 Max): BibleDomain **74**, BibleData **22**, BibleAI **64**, app unit tests **130** (gated live/bench tests not counted), full UI suite 14 passed + 1 gated skip (onboarding download, version switch/delete, compare, es/pt-BR launches, all earlier flows). `git diff --check` clean.
+- RV1909 index: 31,084 verses embedded in 461 s (M3 Max), exported at 256 dims (16.1 MB), header source hash matches its `verses.json`; pinned as `bible-rv1909-1` (KJV as `bible-kjv-1`).
+- Live check (Apple model + semantic search, RV1909, `LiveAskBibleTests`, two runs): answers cite Spanish book names and every citation in completed answers was grounded (e.g. Mateo 2:1 ✓, Juan 9:1 ✓, Colosenses 3:13 ✓; one ungrounded "1 Corintios 13" flagged ✗). One "blind person" question per run (Spanish in one, English in the other) was declined by Apple's guardrail ("declined to answer") — intermittent, not a retrieval failure.
+- Commits (2026-10-02): `376ca3e` localization, `1fdcba4` package support (versions, language-aware search, package loading, manifest hosts, prompt profiles), `5d66073` installable/switchable/comparable versions (KJV moved to `Bibles/kjv/`, RV1909 package added in `Bibles/rv1909/`, import/release tools, UI-test Bible server), `48eee87` chat from the reading version; docs separately. Each code commit's unit tests were run in a scratch worktree before committing (109, packages 74/21/64, 129, 130).
+- Not verified / open: no GitHub release exists yet, so the shipping app cannot download anything until Miguel publishes `bible-kjv-1` and `bible-rv1909-1` (commands printed by `make_release.py`); no MLX live run against RV1909; iOS compact layout of the compare view and onboarding not checked on a device; the selected verse is not kept across a version switch (book/chapter are); Settings has no Bibles section (managed from the reader's version menu instead); citations in English book names while reading a Spanish version are not recognized.
