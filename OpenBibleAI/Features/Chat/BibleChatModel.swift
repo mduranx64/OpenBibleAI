@@ -569,6 +569,19 @@ final class BibleChatModel {
     }
 
     private static func message(for error: any Error) -> String {
-        (error as? any LocalizedError)?.errorDescription ?? String(describing: error)
+        switch error as? AIEngineError {
+        case .contextTooLong:
+            String(localized: "The verse and chapter context are too long for the on-device model. Try a shorter question.")
+        case .refused:
+            String(localized: "The on-device model declined to answer this question.")
+        case .unsupportedLanguage:
+            String(localized: "The on-device model doesn’t support this language.")
+        case .modelUnavailable:
+            String(localized: "The on-device model isn’t available right now.")
+        case .timedOut:
+            String(localized: "The on-device model took too long to respond. Please try again.")
+        case nil:
+            (error as? any LocalizedError)?.errorDescription ?? String(describing: error)
+        }
     }
 }

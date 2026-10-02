@@ -15,11 +15,18 @@ struct BibleReaderView: View {
     let catalogModel: BibleCatalogModel
     let textSearchModel: BibleTextSearchModel
 
-    private enum SearchMode: String, CaseIterable, Identifiable {
-        case reference = "Reference"
-        case text = "Text"
+    private enum SearchMode: CaseIterable, Identifiable {
+        case reference
+        case text
 
         var id: Self { self }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .reference: "Reference"
+            case .text: "Text"
+            }
+        }
     }
 
     @State private var navigation: BibleReaderNavigationModel
@@ -318,7 +325,7 @@ struct BibleReaderView: View {
 
     /// Breadcrumb for the reading pane, e.g. "John 3".
     private var locationTitle: String {
-        guard let selectedChapter else { return "Bible" }
+        guard let selectedChapter else { return String(localized: "Bible") }
         let name = bookName(for: selectedChapter.bookID) ?? selectedChapter.bookID
         return "\(name) \(selectedChapter.chapter)"
     }
@@ -440,7 +447,7 @@ struct BibleReaderView: View {
         VStack(alignment: .leading, spacing: 8) {
             Picker("Search type", selection: $searchMode) {
                 ForEach(SearchMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+                    Text(mode.title).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
@@ -567,9 +574,9 @@ struct BibleReaderView: View {
 
     private func textSearchSummary(for result: BibleTextSearchResult) -> String {
         if result.isTruncated {
-            return "Showing first \(result.verses.count) of \(result.totalCount) verses"
+            return String(localized: "Showing first \(result.verses.count) of \(result.totalCount) verses")
         }
-        return result.totalCount == 1 ? "1 verse" : "\(result.totalCount) verses"
+        return String(localized: "\(result.totalCount) verses")
     }
 
     private func referenceLabel(for reference: BibleReference) -> String {

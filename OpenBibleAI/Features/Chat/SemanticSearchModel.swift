@@ -99,7 +99,7 @@ final class SemanticSearchModel {
             } catch is CancellationError {
                 outcome = .idle
             } catch {
-                outcome = .failed("The download failed: \(error.localizedDescription)")
+                outcome = .failed(String(localized: "The download failed: \(error.localizedDescription)"))
             }
             guard let self, generation == self.downloadGeneration else { return }
             self.downloadState = outcome

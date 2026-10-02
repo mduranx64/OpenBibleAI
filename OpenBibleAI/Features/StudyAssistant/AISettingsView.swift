@@ -27,7 +27,7 @@ struct AISettingsView: View {
 
             if semanticSearch.isOffered {
                 Section("Semantic search") {
-                    Text("Helps “Ask the Bible” find passages by meaning and in other languages. Runs on this device.")
+                    Text("Helps the Bible chat find passages by meaning and in other languages. Runs on this device.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     LabeledContent("Download size", value: semanticSearch.downloadSizeText)
@@ -46,7 +46,7 @@ struct AISettingsView: View {
                         }
                     }
                     if semanticSearch.isInstalled {
-                        DownloadedModelRow(name: "Search model", size: semanticSearch.downloadSizeText) {
+                        DownloadedModelRow(name: String(localized: "Search model"), size: semanticSearch.downloadSizeText) {
                             await semanticSearch.deleteModel()
                         }
                     }
@@ -69,7 +69,7 @@ struct AISettingsView: View {
         }
     }
 
-    private var appleStatusText: String {
+    private var appleStatusText: LocalizedStringKey {
         switch engine.appleStatus {
         case .available:
             "Available and used for AI study."

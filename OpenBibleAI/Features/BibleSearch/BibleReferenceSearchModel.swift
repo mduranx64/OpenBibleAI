@@ -1,4 +1,5 @@
 import BibleDomain
+import Foundation
 import Observation
 
 @MainActor
@@ -43,7 +44,7 @@ final class BibleReferenceSearchModel {
             guard verse.reference == reference else {
                 state = .failed(
                     query: query,
-                    message: "The repository returned a different verse. Please try again."
+                    message: String(localized: "The repository returned a different verse. Please try again.")
                 )
                 return
             }
@@ -68,19 +69,19 @@ final class BibleReferenceSearchModel {
     private func message(for error: any Error) -> String {
         switch error {
         case BibleReferenceParser.ParseError.invalidSyntax:
-            return "Enter a full book name, chapter, and verse, such as John 3:16."
+            return String(localized: "Enter a full book name, chapter, and verse, such as John 3:16.")
         case let BibleReferenceParser.ParseError.unknownBook(name):
-            return "No book named \"\(name)\" was found. Use its full catalog name."
+            return String(localized: "No book named “\(name)” was found. Use its full catalog name.")
         case let BibleReferenceParser.ParseError.ambiguousBook(name):
-            return "More than one catalog book matches \"\(name)\"."
+            return String(localized: "More than one catalog book matches “\(name)”.")
         case BibleReference.ValidationError.invalidChapter:
-            return "Chapter numbers must be greater than zero."
+            return String(localized: "Chapter numbers must be greater than zero.")
         case BibleReference.ValidationError.invalidVerse:
-            return "Verse numbers must be greater than zero."
+            return String(localized: "Verse numbers must be greater than zero.")
         case InMemoryBibleRepository.LookupError.verseNotFound:
-            return "This verse is not available in the loaded Bible."
+            return String(localized: "This verse is not available in the loaded Bible.")
         default:
-            return "Could not look up this reference. Please try again. \(error)"
+            return String(localized: "Could not look up this reference. Please try again. \(String(describing: error))")
         }
     }
 }

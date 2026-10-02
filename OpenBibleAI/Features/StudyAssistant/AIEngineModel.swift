@@ -202,23 +202,23 @@ final class AIEngineModel {
     var statusMessage: String {
         switch choice {
         case .apple:
-            return "Using Apple Intelligence on this device."
+            return String(localized: "Using Apple Intelligence on this device.")
         case let .mlx(tier):
-            return "Using the downloaded \(tier.displayName) model on this device."
+            return String(localized: "Using the downloaded \(tier.displayName) model on this device.")
         case let .needsDownload(tier):
-            var text = "Download the \(tier.displayName) model (\(downloadSizeText)) to study with AI. It runs entirely on this device."
+            var text = String(localized: "Download the \(tier.displayName) model (\(downloadSizeText)) to study with AI. It runs entirely on this device.")
             if appleStatus == .unavailable(.appleIntelligenceNotEnabled) {
-                text += " Or turn on Apple Intelligence in Settings."
+                text += " " + String(localized: "Or turn on Apple Intelligence in Settings.")
             }
             return text
         case .unavailable(.appleIntelligenceOff):
-            return "Turn on Apple Intelligence in Settings to study with AI."
+            return String(localized: "Turn on Apple Intelligence in Settings to study with AI.")
         case .unavailable(.appleModelPreparing):
-            return "Apple Intelligence is still preparing its model. Try again later."
+            return String(localized: "Apple Intelligence is still preparing its model. Try again later.")
         case .unavailable(.notEnoughMemory):
-            return "This device doesn’t have enough memory for on-device AI. Reading and search still work."
+            return String(localized: "This device doesn’t have enough memory for on-device AI. Reading and search still work.")
         case .unavailable(.unsupportedDevice):
-            return "AI study isn’t available on this device. Reading and search still work."
+            return String(localized: "AI study isn’t available on this device. Reading and search still work.")
         }
     }
 
@@ -226,11 +226,11 @@ final class AIEngineModel {
         switch error {
         case let LocalModelStore.StoreError.insufficientSpace(required, available):
             let formatter = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
-            return "Not enough free space: the model needs \(formatter(required)), \(formatter(available)) available."
+            return String(localized: "Not enough free space: the model needs \(formatter(required)), \(formatter(available)) available.")
         case LocalModelStore.StoreError.checksumMismatch:
-            return "The download was damaged. Please try again."
+            return String(localized: "The download was damaged. Please try again.")
         default:
-            return "The download failed: \(error.localizedDescription)"
+            return String(localized: "The download failed: \(error.localizedDescription)")
         }
     }
 }

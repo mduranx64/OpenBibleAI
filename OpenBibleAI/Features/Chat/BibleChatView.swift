@@ -45,7 +45,7 @@ struct BibleChatView: View {
 
     private var header: some View {
         HStack {
-            Text(model.conversation.title.isEmpty ? "Bible Chat" : model.conversation.title)
+            Text(model.conversation.title.isEmpty ? String(localized: "Bible Chat") : model.conversation.title)
                 .font(.headline)
                 .lineLimit(1)
                 .accessibilityIdentifier("chatTitle")
@@ -327,7 +327,7 @@ struct ChatHistoryView: View {
                                 open(summary.id)
                             } label: {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(summary.title.isEmpty ? "Untitled chat" : summary.title)
+                                    Text(summary.title.isEmpty ? String(localized: "Untitled chat") : summary.title)
                                         .lineLimit(2)
                                     Text(summary.updatedAt, format: .relative(presentation: .named))
                                         .font(.caption)

@@ -8,6 +8,8 @@
     "development": "en",
     "supported": [
       "Base",
+      "es",
+      "pt-BR",
     ],
   },
   "packages": [

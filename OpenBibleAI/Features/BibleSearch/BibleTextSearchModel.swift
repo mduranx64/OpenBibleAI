@@ -1,4 +1,5 @@
 import BibleDomain
+import Foundation
 import Observation
 
 @MainActor
@@ -74,7 +75,7 @@ final class BibleTextSearchModel {
             } else {
                 state = .failed(
                     query: rawQuery,
-                    message: "Could not search the Bible. Please try again. \(error)"
+                    message: String(localized: "Could not search the Bible. Please try again. \(String(describing: error))")
                 )
             }
         }
