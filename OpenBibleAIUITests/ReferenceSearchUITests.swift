@@ -6,29 +6,6 @@ final class ReferenceSearchUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Launches and brings the app forward, then requires a window. Without a
-    /// window every later query fails with a bare "XCTAssertTrue failed", which
-    /// looks like a feature bug but is a desktop/launch problem.
-    ///
-    /// Launch arguments skip macOS's persisted window state, which can restore
-    /// the app with no window (e.g. a frame saved on a disconnected display).
-    /// If no window still appears, fall back to File > New Window (Cmd+N).
-    private func launch(_ app: XCUIApplication) {
-        app.launchArguments += [
-            "-ApplePersistenceIgnoreState", "YES",
-            "-NSQuitAlwaysKeepsWindows", "NO"
-        ]
-        app.launch()
-        app.activate()
-        if !app.windows.firstMatch.waitForExistence(timeout: 5) {
-            app.typeKey("n", modifierFlags: .command)
-        }
-        XCTAssertTrue(
-            app.windows.firstMatch.waitForExistence(timeout: 10),
-            "OpenBibleAI launched without a window; check that the app is not hidden or on a disconnected display"
-        )
-    }
-
     private func search(_ query: String, in app: XCUIApplication, pressReturn: Bool = false) {
         let field = app.textFields["referenceSearchField"]
         XCTAssertTrue(field.waitForExistence(timeout: 15))
@@ -53,7 +30,7 @@ final class ReferenceSearchUITests: XCTestCase {
 
     func testSearchSelectionErrorsAndLongChapter() {
         let app = XCUIApplication()
-        launch(app)
+        app.launchForUITest()
         search("John 3:16", in: app, pressReturn: true)
         expectSelected("verse-JOH-3-16", in: app)
 
@@ -73,7 +50,7 @@ final class ReferenceSearchUITests: XCTestCase {
 
     func testChapterBoundariesAndRelaunchRestoration() {
         let app = XCUIApplication()
-        launch(app)
+        app.launchForUITest()
         // Previous/Next cross book boundaries and stop only at the first
         // chapter of Genesis and the last chapter of Revelation.
         search("Genesis 1:1", in: app)
@@ -90,7 +67,7 @@ final class ReferenceSearchUITests: XCTestCase {
         expectSelected("verse-GEN-50-26", in: app)
         XCTAssertTrue(app.buttons["Next Chapter"].isEnabled, "Genesis 50 continues to Exodus 1")
         app.terminate()
-        launch(app)
+        app.launchForUITest()
         // Restoration intentionally saves chapter only, not verse or scroll offset.
         let verse = app.buttons["verse-GEN-50-1"]
         XCTAssertTrue(verse.waitForExistence(timeout: 15))

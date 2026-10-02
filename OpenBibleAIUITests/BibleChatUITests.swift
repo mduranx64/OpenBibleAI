@@ -6,23 +6,6 @@ final class BibleChatUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Same launch hardening as `ReferenceSearchUITests`.
-    private func launch(_ app: XCUIApplication) {
-        app.launchArguments += [
-            "-ApplePersistenceIgnoreState", "YES",
-            "-NSQuitAlwaysKeepsWindows", "NO"
-        ]
-        app.launch()
-        app.activate()
-        if !app.windows.firstMatch.waitForExistence(timeout: 5) {
-            app.typeKey("n", modifierFlags: .command)
-        }
-        XCTAssertTrue(
-            app.windows.firstMatch.waitForExistence(timeout: 10),
-            "OpenBibleAI launched without a window; check that the app is not hidden or on a disconnected display"
-        )
-    }
-
     private func search(_ query: String, in app: XCUIApplication) {
         let field = app.textFields["referenceSearchField"]
         XCTAssertTrue(field.waitForExistence(timeout: 15))
@@ -48,7 +31,7 @@ final class BibleChatUITests: XCTestCase {
 
     func testSelectedVerseAttachesAsAChipThatCanBeRemoved() {
         let app = XCUIApplication()
-        launch(app)
+        app.launchForUITest()
 
         XCTAssertTrue(app.textFields["chatInputField"].waitForExistence(timeout: 15),
                       "The chat is available without selecting a verse")
@@ -77,7 +60,7 @@ final class BibleChatUITests: XCTestCase {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["OPENBIBLE_LIVE_ASK"] == "1",
                           "Set TEST_RUNNER_OPENBIBLE_LIVE_ASK=1 to run against the real model")
         let app = XCUIApplication()
-        launch(app)
+        app.launchForUITest()
 
         let field = app.textFields["chatInputField"]
         XCTAssertTrue(field.waitForExistence(timeout: 15))
@@ -106,7 +89,7 @@ final class BibleChatUITests: XCTestCase {
 
         // The chat is saved: after relaunch it is listed and reopens.
         app.terminate()
-        launch(app)
+        app.launchForUITest()
         XCTAssertTrue(app.buttons["chatHistoryButton"].waitForExistence(timeout: 15))
         app.buttons["chatHistoryButton"].click()
         let row = app.buttons.matching(identifier: "chatHistoryRow").firstMatch

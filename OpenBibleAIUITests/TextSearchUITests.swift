@@ -6,24 +6,6 @@ final class TextSearchUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Same launch hardening as `ReferenceSearchUITests`: skip persisted window
-    /// state, then require a window so failures name the real problem.
-    private func launch(_ app: XCUIApplication) {
-        app.launchArguments += [
-            "-ApplePersistenceIgnoreState", "YES",
-            "-NSQuitAlwaysKeepsWindows", "NO"
-        ]
-        app.launch()
-        app.activate()
-        if !app.windows.firstMatch.waitForExistence(timeout: 5) {
-            app.typeKey("n", modifierFlags: .command)
-        }
-        XCTAssertTrue(
-            app.windows.firstMatch.waitForExistence(timeout: 10),
-            "OpenBibleAI launched without a window; check that the app is not hidden or on a disconnected display"
-        )
-    }
-
     private func switchToTextSearch(in app: XCUIApplication) {
         let picker = app.radioButtons["Text"]
         XCTAssertTrue(picker.waitForExistence(timeout: 15))
@@ -41,7 +23,7 @@ final class TextSearchUITests: XCTestCase {
 
     func testTextSearchOpensResultAndShowsStatuses() {
         let app = XCUIApplication()
-        launch(app)
+        app.launchForUITest()
         switchToTextSearch(in: app)
 
         textSearch("\"in the beginning\"", in: app)

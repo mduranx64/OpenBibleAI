@@ -17,27 +17,11 @@ final class WindowLayoutUITests: XCTestCase {
         "NSSplitView Subview Frames SwiftUI.WindowGroup<OpenBibleAI.ContentView>-1-AppWindow-1, SidebarNavigationSplitView"
 
     private func launch(_ app: XCUIApplication, discardingSavedLayout: Bool = false) {
-        if discardingSavedLayout {
-            // Launch arguments override the saved defaults for this run only,
-            // so the app behaves as on a first launch.
-            app.launchArguments += [
-                "-\(Self.windowFrameKey)", "",
-                "-\(Self.splitFramesKey)", ""
-            ]
-        }
-        app.launchArguments += [
-            "-ApplePersistenceIgnoreState", "YES",
-            "-NSQuitAlwaysKeepsWindows", "NO"
-        ]
-        app.launch()
-        app.activate()
-        if !app.windows.firstMatch.waitForExistence(timeout: 5) {
-            app.typeKey("n", modifierFlags: .command)
-        }
-        XCTAssertTrue(
-            app.windows.firstMatch.waitForExistence(timeout: 10),
-            "OpenBibleAI launched without a window; check that the app is not hidden or on a disconnected display"
-        )
+        // Launch arguments override the saved defaults for this run only,
+        // so the app behaves as on a first launch.
+        app.launchForUITest(arguments: discardingSavedLayout
+            ? ["-\(Self.windowFrameKey)", "", "-\(Self.splitFramesKey)", ""]
+            : [])
     }
 
     func testReadingColumnKeepsRoomEvenWithTheStudyPanelOpen() {

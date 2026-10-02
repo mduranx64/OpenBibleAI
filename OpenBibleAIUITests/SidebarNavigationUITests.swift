@@ -6,23 +6,6 @@ final class SidebarNavigationUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Same launch hardening as `ReferenceSearchUITests`.
-    private func launch(_ app: XCUIApplication) {
-        app.launchArguments += [
-            "-ApplePersistenceIgnoreState", "YES",
-            "-NSQuitAlwaysKeepsWindows", "NO"
-        ]
-        app.launch()
-        app.activate()
-        if !app.windows.firstMatch.waitForExistence(timeout: 5) {
-            app.typeKey("n", modifierFlags: .command)
-        }
-        XCTAssertTrue(
-            app.windows.firstMatch.waitForExistence(timeout: 10),
-            "OpenBibleAI launched without a window; check that the app is not hidden or on a disconnected display"
-        )
-    }
-
     private func expectTitle(_ text: String, in app: XCUIApplication) {
         let title = app.staticTexts["chapterTitle"]
         XCTAssertTrue(title.waitForExistence(timeout: 15))
@@ -45,7 +28,7 @@ final class SidebarNavigationUITests: XCTestCase {
 
     func testDrillDownFilterShortcutsAndCrossBookNext() {
         let app = XCUIApplication()
-        launch(app)
+        app.launchForUITest()
 
         // A restored reading position opens the chapter grid; go back first.
         let back = app.buttons["backToBooksButton"]
