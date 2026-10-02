@@ -48,6 +48,54 @@ struct BibleChatModelTests {
     }
 
     @Test
+    func answersFromTheReadingVersionAndRechecksSavedAnswersAgainstTheirOwnVersion() async throws {
+        let spanish = InMemoryBibleRepository(
+            verses: [try BibleVerse(
+                reference: BibleReference(bookID: "MAT", chapter: 2, verse: 1),
+                text: "Y como fué nacido Jesús en Bethlehem de Judea en días del rey Herodes"
+            )],
+            books: [try BibleBook(bookID: "MAT", name: "Mateo", canonicalOrder: 40)],
+            language: "es"
+        )
+        let english = try repository()
+        let bibles: [String: BibleChatModel.Bible] = [
+            "kjv": BibleChatModel.Bible(
+                version: try BibleVersion(id: "kjv", name: "King James Version", abbreviation: "KJV", languageCode: "en", copyright: ""),
+                passages: english, verses: english, books: { try await english.books() }
+            ),
+            "rv1909": BibleChatModel.Bible(
+                version: try BibleVersion(id: "rv1909", name: "Reina-Valera 1909", abbreviation: "RV1909", languageCode: "es", copyright: ""),
+                passages: spanish, verses: spanish, books: { try await spanish.books() }
+            ),
+        ]
+        final class Reading { var id = "rv1909" }
+        let reading = Reading()
+        let streamer = FakeStreamer(keywords: "nacido, Bethlehem", answer: ["Nació en Belén [Mateo 2:1]."])
+        let model = BibleChatModel(
+            bible: { id in try #require(bibles[id ?? reading.id]) },
+            engine: .init(makeStreamer: { streamer }, passageBudget: { 6_000 }),
+            store: InMemoryChatStore()
+        )
+
+        await model.send("¿Dónde nació Jesús?").value
+
+        let answer = try lastAnswer(model)
+        #expect(answer.versionID == "rv1909")
+        #expect(answer.sources.map(\.title) == ["Mateo 2:1"])
+        #expect(model.citations[answer.id]?.flatMap(\.items).map(\.status) == [.grounded])
+        #expect(streamer.keywordPrompts.last?.system.contains("Spanish Reina-Valera 1909") == true)
+        #expect(streamer.answerPrompts.last?.user.contains("Passages (Reina-Valera 1909)") == true)
+
+        // The reader moves to the KJV; the saved answer still checks
+        // [Mateo 2:1] against the version it was answered from.
+        reading.id = "kjv"
+        let id = model.conversation.id
+        model.newChat()
+        await model.open(id)
+        #expect(model.citations[answer.id]?.flatMap(\.items).map(\.status) == [.grounded])
+    }
+
+    @Test
     func answersFromRetrievedPassagesAndVerifiesCitations() async throws {
         let streamer = FakeStreamer(
             keywords: "born, Bethlehem",

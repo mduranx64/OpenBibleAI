@@ -3,10 +3,11 @@ import BibleDomain
 import Foundation
 import Observation
 
-/// The Bible chat: answers questions from retrieved KJV passages (plus an
-/// attached verse), remembers recent turns for follow-ups, checks every
-/// answer's citations, and saves conversations on device. App-level, so a
-/// chat survives verse changes (tapping a citation opens a verse).
+/// The Bible chat: answers questions from passages retrieved from the
+/// reading version (plus an attached verse), remembers recent turns for
+/// follow-ups, checks every answer's citations, and saves conversations on
+/// device. App-level, so a chat survives verse and version changes (tapping
+/// a citation opens a verse).
 @MainActor
 @Observable
 final class BibleChatModel {
@@ -38,6 +39,17 @@ final class BibleChatModel {
             )
         }
     }
+
+    /// One installed version's text, searched and cited by the chat.
+    struct Bible: Sendable {
+        let version: BibleVersion
+        let passages: any BiblePassageSearchRepository
+        let verses: any BibleRepository
+        let books: @Sendable () async throws -> [BibleBook]
+    }
+
+    /// The version an older chat without a recorded version was answered from.
+    static let defaultVersionID = "kjv"
 
     /// Progress of the answer being generated, if any.
     enum Phase: Equatable {
@@ -92,9 +104,9 @@ final class BibleChatModel {
     /// Checked citations per assistant message.
     private(set) var citations: [UUID: [ResolvedCitation]] = [:]
 
-    @ObservationIgnored private let passageSearch: any BiblePassageSearchRepository
-    @ObservationIgnored private let verses: any BibleRepository
-    @ObservationIgnored private let books: @Sendable () async throws -> [BibleBook]
+    /// The reading version's Bible (nil) or a given version's, for
+    /// re-checking the citations of a saved answer.
+    @ObservationIgnored private let bible: @MainActor (String?) async throws -> Bible
     @ObservationIgnored private let engine: Engine
     @ObservationIgnored private let store: any ChatStore
     @ObservationIgnored private var generation = 0
@@ -111,17 +123,34 @@ final class BibleChatModel {
     static let carriedReferenceLimit = 4
 
     init(
+        bible: @escaping @MainActor (String?) async throws -> Bible,
+        engine: Engine,
+        store: any ChatStore
+    ) {
+        self.bible = bible
+        self.engine = engine
+        self.store = store
+    }
+
+    /// One fixed Bible (the KJV) for every question and saved chat.
+    convenience init(
         passages: any BiblePassageSearchRepository,
         verses: any BibleRepository,
         books: @escaping @Sendable () async throws -> [BibleBook],
         engine: Engine,
         store: any ChatStore
     ) {
-        self.passageSearch = passages
-        self.verses = verses
-        self.books = books
-        self.engine = engine
-        self.store = store
+        let version: BibleVersion
+        do {
+            version = try BibleVersion(
+                id: Self.defaultVersionID, name: "King James Version", abbreviation: "KJV",
+                languageCode: "en", copyright: "Public domain"
+            )
+        } catch {
+            preconditionFailure("Invalid default version: \(error)")
+        }
+        let fixed = Bible(version: version, passages: passages, verses: verses, books: books)
+        self.init(bible: { _ in fixed }, engine: engine, store: store)
     }
 
     var isAnswering: Bool { phase != .idle }
@@ -233,11 +262,20 @@ final class BibleChatModel {
 
         conversation = loaded
         citations = [:]
-        guard let books = try? await self.books(), requestGeneration == generation else { return }
-        let names = Self.names(for: books)
+        // Each answer is checked against the version it was answered from;
+        // one whose version isn't installed shows its citations unlinked.
+        var loadedBibles: [String: (Bible, [BibleBook])] = [:]
         for message in loaded.messages where message.role == .assistant {
+            let id = message.versionID ?? Self.defaultVersionID
+            if loadedBibles[id] == nil, let bible = try? await self.bible(id), let books = try? await bible.books() {
+                loadedBibles[id] = (bible, books)
+            }
+            guard requestGeneration == generation else { return }
+            guard let (bible, books) = loadedBibles[id] else { continue }
             let grounding = Set(message.sources.flatMap(\.references))
-            let resolved = await resolveCitations(in: message.text, books: books, names: names, grounding: grounding)
+            let resolved = await resolveCitations(
+                in: message.text, bible: bible, books: books, names: Self.names(for: books), grounding: grounding
+            )
             guard requestGeneration == generation else { return }
             citations[message.id] = resolved
         }
@@ -268,8 +306,11 @@ final class BibleChatModel {
 
         do {
             let streamer = try engine.makeStreamer()
-            let books = try await self.books()
+            let bible = try await self.bible(nil)
+            let books = try await bible.books()
             let names = Self.names(for: books)
+            let profile = BibleQuestionPrompt.SearchProfile(version: bible.version)
+            updateAnswer(request.messageID) { $0.versionID = bible.version.id }
 
             // The budget is shared: up to a third each for earlier
             // conversation and the attached verse's chapter, the rest (at
@@ -292,13 +333,14 @@ final class BibleChatModel {
             }
             let focusCharacters = focus.map { ($0.context.isEmpty ? [$0.verse] : $0.context).reduce(0) { $0 + $1.text.count } } ?? 0
 
-            // 1. Keywords (any language → English KJV words); optional.
+            // 1. Keywords (any language → words of the version's language); optional.
             let keywordPrompt = BibleQuestionPrompt.keywords(
                 for: request.question,
                 previous: request.history.last,
                 earlierQuestions: request.earlierQuestions,
                 summary: request.summary,
-                focus: focus
+                focus: focus,
+                profile: profile
             )
             let suggested = (try? await streamer.response(to: keywordPrompt))
                 .map(SearchKeywordParser.keywords(from:)) ?? []
@@ -308,7 +350,7 @@ final class BibleChatModel {
             //    when available and with the verses the previous answer cited,
             //    so a follow-up like "who said it?" keeps its passage. The
             //    meaning-based query includes the previous question.
-            let keywordRanked = try await passageSearch.rankedVerses(
+            let keywordRanked = try await bible.passages.rankedVerses(
                 matching: suggested + [request.question],
                 limit: Self.rankedVerseLimit
             )
@@ -328,7 +370,7 @@ final class BibleChatModel {
             let ranked = rankings.count == 1
                 ? keywordRanked
                 : RankFusion.reciprocalRank(rankings, limit: Self.rankedVerseLimit)
-            let passages = try await passageSearch.passages(
+            let passages = try await bible.passages.passages(
                 around: ranked.map(\.reference),
                 window: Self.passageWindow,
                 limit: Self.passageLimit,
@@ -355,7 +397,8 @@ final class BibleChatModel {
                 history: history,
                 summary: request.summary,
                 focus: focus,
-                historyCharacterLimit: historyLimit
+                historyCharacterLimit: historyLimit,
+                profile: profile
             )
             for try await delta in streamer.streamResponse(to: prompt) {
                 guard isCurrent() else { return }
@@ -366,7 +409,7 @@ final class BibleChatModel {
             // 4. Check every citation against the Bible.
             let text = message(request.messageID)?.text ?? ""
             let grounding = Set(sources.flatMap(\.references))
-            let resolved = await resolveCitations(in: text, books: books, names: names, grounding: grounding)
+            let resolved = await resolveCitations(in: text, bible: bible, books: books, names: names, grounding: grounding)
             guard isCurrent() else { return }
             citations[request.messageID] = resolved
             updateAnswer(request.messageID) { $0.status = .completed }
@@ -504,6 +547,7 @@ final class BibleChatModel {
 
     private func resolveCitations(
         in text: String,
+        bible: Bible,
         books: [BibleBook],
         names: [String: String],
         grounding: Set<BibleReference>
@@ -519,7 +563,7 @@ final class BibleChatModel {
                     let status: ResolvedCitation.Status
                     if Self.cited(reference, through: endVerse).allSatisfy(grounding.contains) {
                         status = .grounded
-                    } else if await exists(reference, through: endVerse) {
+                    } else if await Self.exists(reference, through: endVerse, in: bible.verses) {
                         status = .outsideSources
                     } else {
                         status = .notFound
@@ -544,7 +588,7 @@ final class BibleChatModel {
         }
     }
 
-    private func exists(_ reference: BibleReference, through endVerse: Int?) async -> Bool {
+    private static func exists(_ reference: BibleReference, through endVerse: Int?, in verses: any BibleRepository) async -> Bool {
         guard (try? await verses.verse(at: reference)) != nil else { return false }
         guard let endVerse,
               let last = try? BibleReference(bookID: reference.bookID, chapter: reference.chapter, verse: endVerse)

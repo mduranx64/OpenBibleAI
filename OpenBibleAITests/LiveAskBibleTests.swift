@@ -10,7 +10,8 @@ import Testing
 /// `OPENBIBLE_LIVE_ASK=apple|standard|compact` (forward with
 /// `TEST_RUNNER_OPENBIBLE_LIVE_ASK=…`); MLX tiers need the downloaded model.
 /// Prints keywords, sources, answers and citation checks for a human to read;
-/// asserts only that each answer completes.
+/// asserts only that each answer completes. `OPENBIBLE_VERSION=<id>` answers
+/// from `Bibles/<id>` (default `kjv`; semantic search uses its index).
 @MainActor
 struct LiveAskBibleTests {
     nonisolated private static let engineName =
@@ -32,7 +33,7 @@ struct LiveAskBibleTests {
     func answersCiteVerifiedVerses() async throws {
         let (model, _) = try await makeModel()
 
-        var report = "\n=== OPENBIBLE LIVE ASK (\(Self.engineName ?? "")\(Self.useSemantic ? " + semantic" : "")) ===\n"
+        var report = "\n=== OPENBIBLE LIVE ASK (\(VerseIndexBuilderTests.versionID), \(Self.engineName ?? "")\(Self.useSemantic ? " + semantic" : "")) ===\n"
         for question in Self.questions {
             model.newChat()
             report += try await ask(question, model)
@@ -55,8 +56,9 @@ struct LiveAskBibleTests {
         model.newChat()
         let chapter = try await repository.verses(in: "JOH", chapter: 3)
         let verse = try #require(chapter.first { $0.reference.verse == 16 })
-        model.attach(verse: verse, bookName: "John", chapterVerses: chapter)
-        report += "[attached John 3:16]\n"
+        let john = try await repository.books().first { $0.bookID == "JOH" }?.name ?? "John"
+        model.attach(verse: verse, bookName: john, chapterVerses: chapter)
+        report += "[attached \(john) 3:16]\n"
         for question in ["¿Qué significa este versículo?", "¿Quién dijo estas palabras?", "¿A quién se las dijo?"] {
             report += try await ask(question, model)
         }
@@ -100,15 +102,14 @@ struct LiveAskBibleTests {
           sources: \(answer.sources.map(\.title).joined(separator: "; "))\(answer.usedSemanticSearch ? "  [+semantic]" : "")
           answer: \(answer.text.replacingOccurrences(of: "\n", with: " "))
           citations: \(items.map { "\($0.label)\($0.isVerified ? " ✓" : " ✗")" }.joined(separator: ", "))
+          status: \(answer.status)
 
         """
     }
 
     private func makeModel(budgetDivisor: Int = 1) async throws -> (BibleChatModel, JSONBibleRepository) {
-        let booksURL = RepositoryBibles.kjvBooks
-        let versesURL = RepositoryBibles.kjvVerses
-        let catalog = try await JSONBibleBookCatalog.load(from: booksURL)
-        let repository = try await JSONBibleRepository.load(from: versesURL, books: catalog.books)
+        let package = try await BibleVersionPackage.load(from: VerseIndexBuilderTests.package)
+        let repository = package.repository
 
         let streamer: any AIPromptStreaming
         let budget: Int
@@ -129,7 +130,7 @@ struct LiveAskBibleTests {
 
         var semantic: SemanticVerseSearch?
         if Self.useSemantic {
-            let indexURL = RepositoryBibles.kjvEmbeddings
+            let indexURL = try #require(package.embeddingsURL)
             let embedderDirectory = URL.applicationSupportDirectory
                 .appendingPathComponent("OpenBibleAI/Models/embedding", isDirectory: true)
             semantic = SemanticVerseSearch(indexURL: indexURL, embedder: MLXTextEmbedder(directory: embedderDirectory))
@@ -138,10 +139,14 @@ struct LiveAskBibleTests {
             { question in try await search.rankedVerses(for: question, limit: 20) }
         }
 
-        let model = BibleChatModel(
+        let bible = BibleChatModel.Bible(
+            version: package.version,
             passages: repository,
             verses: repository,
-            books: { catalog.books },
+            books: { package.books }
+        )
+        let model = BibleChatModel(
+            bible: { _ in bible },
             engine: .init(makeStreamer: { streamer }, passageBudget: { budget / budgetDivisor }, semanticSearch: { searcher }),
             store: InMemoryChatStore()
         )

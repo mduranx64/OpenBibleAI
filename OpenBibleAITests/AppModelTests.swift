@@ -233,6 +233,7 @@ struct AppModelLibraryTests {
         let second = try #require(appModel.session)
         #expect(second.version.id == "web")
         #expect(second.catalog !== first.catalog)
+        #expect(second.chat === first.chat, "The chat continues across versions")
         #expect(library.activeVersionID == "web")
     }
 

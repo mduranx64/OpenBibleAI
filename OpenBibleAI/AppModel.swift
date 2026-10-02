@@ -43,6 +43,22 @@ final class AppModel {
     private(set) var state: State = .idle
     let library: BibleLibraryModel
 
+    /// One chat for the app's lifetime; it answers from the reading version.
+    @ObservationIgnored private lazy var chat = BibleChatModel(
+        bible: { [library] id in
+            guard let id = id ?? library.activeVersionID else { throw BibleLibraryModel.LibraryError.notInstalled("") }
+            let loaded = try await library.bible(id)
+            let catalog = loaded.repositories.catalog
+            return BibleChatModel.Bible(
+                version: loaded.version,
+                passages: loaded.repositories.passages,
+                verses: loaded.repositories.verses,
+                books: { try await catalog.books() }
+            )
+        },
+        engine: chatEngine,
+        store: chatStore
+    )
     @ObservationIgnored private let chatEngine: BibleChatModel.Engine
     @ObservationIgnored private let chatStore: any ChatStore
     @ObservationIgnored private var generation = 0
@@ -108,20 +124,13 @@ final class AppModel {
 
     private func makeSession(for bible: LoadedBible) -> Session {
         let repositories = bible.repositories
-        let catalog = repositories.catalog
         return Session(
             version: bible.version,
             embeddingsURL: bible.embeddingsURL,
             catalog: BibleCatalogModel(repository: repositories.catalog),
             referenceSearch: BibleReferenceSearchModel(catalog: repositories.catalog, verses: repositories.verses),
             textSearch: BibleTextSearchModel(repository: repositories.text),
-            chat: BibleChatModel(
-                passages: repositories.passages,
-                verses: repositories.verses,
-                books: { try await catalog.books() },
-                engine: chatEngine,
-                store: chatStore
-            )
+            chat: chat
         )
     }
 }

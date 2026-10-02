@@ -58,6 +58,9 @@ nonisolated struct ChatMessage: Codable, Equatable, Identifiable, Sendable {
     var sources: [ChatVerseRange]
     var usedSemanticSearch: Bool
     var status: Status
+    /// The Bible version an answer was given from (assistant messages).
+    /// Optional, so chats saved before versions still load (as the KJV).
+    var versionID: String?
 
     init(
         id: UUID = UUID(),
