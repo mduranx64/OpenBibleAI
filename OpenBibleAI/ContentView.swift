@@ -43,9 +43,8 @@ struct ContentView: View {
             case .idle, .loading:
                 ProgressView("Loading Bible…")
 
-            case let .ready(readerModel, catalogModel, searchModel, textSearchModel, chatModel):
+            case let .ready(catalogModel, searchModel, textSearchModel, chatModel):
                 BibleReaderView(
-                    model: readerModel,
                     aiEngine: aiEngine,
                     chatModel: chatModel,
                     semanticSearch: semanticSearch,

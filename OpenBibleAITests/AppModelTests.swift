@@ -5,6 +5,7 @@
 //  Created by Miguel Duran on 28-09-26.
 //
 
+import BibleAI
 import Testing
 import BibleDomain
 @testable import OpenBibleAI
@@ -24,7 +25,7 @@ struct AppModelTests {
             AppModel.Repositories(verses: verses, catalog: catalog, text: stored, passages: stored)
         })
         await model.start()
-        guard case let .ready(_, _, search, _, _) = model.state else {
+        guard case let .ready(_, search, _, _) = model.state else {
             Issue.record("Expected search to be composed with the loaded repositories")
             return
         }
@@ -34,52 +35,32 @@ struct AppModelTests {
 
     @Test
     @MainActor
-    func startCreatesReaderWithLoadedRepository() async throws {
-        let reference = try BibleReference(
-            bookID: "GEN",
-            chapter: 1,
-            verse: 1
-        )
-        let expectedVerse = try BibleVerse(
-            reference: reference,
-            text: "In the beginning"
-        )
-
+    func startCreatesChatWithLoadedRepositoriesAndEngine() async throws {
+        let reference = try BibleReference(bookID: "GEN", chapter: 1, verse: 1)
+        let verse = try BibleVerse(reference: reference, text: "In the beginning God created the heaven and the earth.")
         let repository = InMemoryBibleRepository(
-            verses: [expectedVerse]
+            verses: [verse],
+            books: [try BibleBook(bookID: "GEN", name: "Genesis", canonicalOrder: 1)]
         )
-
         let appModel = AppModel(
             loadRepositories: {
-                AppModel.Repositories(
-                    verses: repository,
-                    catalog: repository,
-                    text: repository,
-                    passages: repository
-                )
-            }
+                AppModel.Repositories(verses: repository, catalog: repository, text: repository, passages: repository)
+            },
+            chatEngine: .init(makeStreamer: { CannedStreamer() }, passageBudget: { 6_000 })
         )
 
-        guard case .idle = appModel.state else {
-            Issue.record("Expected initial idle state")
-            return
-        }
-
         await appModel.start()
-
-        guard case let .ready(readerModel, _, _, _, _) = appModel.state else {
+        guard case let .ready(_, _, _, chat) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
+        await chat.send("Who created the heaven?").value
 
-        await readerModel.load(reference: reference)
-
-        #expect(
-            readerModel.state ==
-                .loaded(expectedVerse)
-        )
+        let answer = try #require(chat.conversation.messages.last)
+        #expect(answer.sources.first?.title == "Genesis 1:1", "Passages come from the loaded repository")
+        #expect(chat.citations[answer.id]?.flatMap(\.items).map(\.status) == [.grounded])
     }
-    
+
     @Test
     @MainActor
     func concurrentStartsLoadRepositoryOnlyOnce() async throws {
@@ -150,7 +131,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(_, catalogModel, _, _, _) = appModel.state else {
+        guard case let .ready(catalogModel, _, _, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -181,7 +162,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(_, _, _, textSearch, _) = appModel.state else {
+        guard case let .ready(_, _, textSearch, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -222,5 +203,15 @@ private actor CountingRepositoryLoader {
 
     func loadCount() -> Int {
         count
+    }
+}
+
+/// Answers every prompt with one citation of Genesis 1:1.
+private struct CannedStreamer: AIPromptStreaming {
+    func streamResponse(to prompt: BibleStudyPrompt) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(prompt.isContentTransformation ? "created, heaven" : "God created them [Genesis 1:1].")
+            continuation.finish()
+        }
     }
 }

@@ -22,7 +22,6 @@ final class AppModel {
         case idle
         case loading
         case ready(
-            BibleReaderModel,
             BibleCatalogModel,
             BibleReferenceSearchModel,
             BibleTextSearchModel,
@@ -70,10 +69,6 @@ final class AppModel {
 
             try Task.checkCancellation()
 
-            let readerModel = BibleReaderModel(
-                repository: repositories.verses
-            )
-
             let catalogModel = BibleCatalogModel(
                 repository: repositories.catalog
             )
@@ -97,7 +92,6 @@ final class AppModel {
             )
 
             state = .ready(
-                readerModel,
                 catalogModel,
                 searchModel,
                 textSearchModel,

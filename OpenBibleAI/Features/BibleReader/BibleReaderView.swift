@@ -9,7 +9,6 @@ import SwiftUI
 import BibleDomain
 
 struct BibleReaderView: View {
-    let model: BibleReaderModel
     let aiEngine: AIEngineModel
     let chatModel: BibleChatModel
     let semanticSearch: SemanticSearchModel
@@ -50,7 +49,6 @@ struct BibleReaderView: View {
     private var activeReference: BibleReference? { navigation.activeReference }
 
     init(
-        model: BibleReaderModel,
         aiEngine: AIEngineModel,
         chatModel: BibleChatModel,
         semanticSearch: SemanticSearchModel,
@@ -59,7 +57,6 @@ struct BibleReaderView: View {
         textSearchModel: BibleTextSearchModel,
         readingPositionStore: ReadingPositionStore
     ) {
-        self.model = model
         self.aiEngine = aiEngine
         self.chatModel = chatModel
         self.semanticSearch = semanticSearch
