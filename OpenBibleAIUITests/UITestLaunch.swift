@@ -1,4 +1,6 @@
+#if os(macOS)
 import AppKit
+#endif
 import Darwin
 import XCTest
 
@@ -14,6 +16,7 @@ extension XCUIApplication {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
+        #if os(macOS)
         if let blocking = Self.debuggedRunningCopy() {
             XCTFail(
                 """
@@ -26,6 +29,7 @@ extension XCUIApplication {
             )
             return
         }
+        #endif
 
         launchArguments += arguments + [
             "-ApplePersistenceIgnoreState", "YES",
@@ -44,6 +48,7 @@ extension XCUIApplication {
         )
     }
 
+    #if os(macOS)
     /// The app's bundle ID, derived from the runner's
     /// (`<prefix>.OpenBibleAIUITests.xctrunner` → `<prefix>.OpenBibleAI`).
     static var appBundleIdentifier: String? {
@@ -66,4 +71,5 @@ extension XCUIApplication {
         guard sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0, size > 0 else { return false }
         return info.kp_proc.p_flag & P_TRACED != 0
     }
+    #endif
 }
