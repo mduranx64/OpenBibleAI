@@ -10,6 +10,11 @@ nonisolated struct ChatConversation: Codable, Equatable, Identifiable, Sendable 
     let createdAt: Date
     var updatedAt: Date
     var messages: [ChatMessage]
+    /// A model-written summary of the first `summarizedMessageCount`
+    /// messages, sent instead of them once they no longer fit the history
+    /// budget. Optional, so chats saved before summaries still load.
+    var historySummary: String?
+    var summarizedMessageCount: Int?
 
     init(id: UUID = UUID(), title: String = "", createdAt: Date = .now, messages: [ChatMessage] = []) {
         self.id = id

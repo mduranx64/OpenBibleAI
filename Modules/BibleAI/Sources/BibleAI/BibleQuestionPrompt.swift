@@ -53,19 +53,71 @@ public enum BibleQuestionPrompt {
         }
     }
 
+    /// Longest summary of earlier turns for the largest budgets.
+    public static let summaryCharacterLimit = 600
+
+    /// Asks for a short summary of turns that no longer fit the history
+    /// budget, folded into `previousSummary`, so long chats keep their thread.
+    /// `characterLimit` is stated to the model; use `trimmedSummary` on the reply.
+    public static func summary(
+        of turns: [Turn],
+        previousSummary: String?,
+        characterLimit: Int = summaryCharacterLimit
+    ) -> BibleStudyPrompt {
+        var parts: [String] = []
+        if let previousSummary, !previousSummary.isEmpty {
+            parts.append("Summary so far:\n\(previousSummary)")
+        }
+        parts.append("Conversation to add:\n" + turns.map {
+            "User: \($0.question)\nAssistant: \($0.answer)"
+        }.joined(separator: "\n"))
+
+        return BibleStudyPrompt(
+            system: """
+            Summarize a conversation about the Bible so it can continue later.
+            Write at most five short sentences, under \(characterLimit) characters in total, in the language of the conversation.
+            Keep the people, places and verse references discussed and what the user wanted to know. \
+            Fold in the summary so far, if given. No introduction or closing remarks.
+            """,
+            user: parts.joined(separator: "\n\n"),
+            isContentTransformation: true
+        )
+    }
+
+    /// Characters of summary and of earlier questions shown to the keyword step.
+    public static let earlierContextCharacterLimit = 300
+
     /// Characters of the previous answer shown to the keyword step.
     public static let previousAnswerCharacterLimit = 400
 
     /// Asks for English King James search words for a question in any language.
     /// The previous turn and `focus` let follow-ups like "and where did he
     /// die?" or "what does this mean?" resolve to the right subject.
+    /// `earlierQuestions` (oldest first, before `previous`) and `summary`
+    /// let "going back to my first question…" find its subject; both are cut
+    /// to `earlierContextCharacterLimit`.
     public static func keywords(
         for question: String,
         previous: Turn? = nil,
+        earlierQuestions: [String] = [],
+        summary: String? = nil,
         focus: FocusVerse? = nil
     ) -> BibleStudyPrompt {
         var user = question
         var context: [String] = []
+        if let summary, !summary.isEmpty {
+            context.append("Earlier conversation: \(summary.prefix(earlierContextCharacterLimit))")
+        }
+        var questions: [String] = []
+        var used = 0
+        for earlier in earlierQuestions.reversed() {
+            guard used + earlier.count <= earlierContextCharacterLimit else { break }
+            used += earlier.count
+            questions.insert(earlier, at: 0)
+        }
+        if !questions.isEmpty {
+            context.append("Earlier questions: " + questions.joined(separator: " | "))
+        }
         if let previous {
             context.append("Previous question: \(previous.question)")
             if !previous.answer.isEmpty {
@@ -85,7 +137,8 @@ public enum BibleQuestionPrompt {
             and always the English words for the question's main subject \
             (for example "blind" for "ciego"). \
             Translate questions asked in other languages. \
-            Use the previous question, previous answer or verse, when given, to understand what the question refers to. \
+            Use the earlier conversation, previous question, previous answer or verse, when given, \
+            to understand what the question refers to. \
             No explanations.
             """,
             user: user,
@@ -100,6 +153,7 @@ public enum BibleQuestionPrompt {
         question: String,
         passages: [Passage],
         history: [Turn] = [],
+        summary: String? = nil,
         focus: FocusVerse? = nil,
         historyCharacterLimit: Int = defaultHistoryCharacterLimit
     ) -> BibleStudyPrompt {
@@ -116,6 +170,10 @@ public enum BibleQuestionPrompt {
         """
 
         var sections: [String] = []
+
+        if let summary, !summary.isEmpty {
+            sections.append("Summary of earlier conversation:\n\(summary)")
+        }
 
         let turns = trimmedHistory(history, characterLimit: historyCharacterLimit)
         if !turns.isEmpty {
@@ -164,6 +222,18 @@ public enum BibleQuestionPrompt {
 }
 
 extension BibleQuestionPrompt {
+    /// A model's summary cut to `characterLimit`, ending at the last full
+    /// sentence that fits (or the limit itself when no sentence end fits).
+    public static func trimmedSummary(_ text: String, characterLimit: Int) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > characterLimit else { return trimmed }
+        let head = trimmed.prefix(characterLimit)
+        if let end = head.lastIndex(where: { ".!?。".contains($0) }) {
+            return String(head[...end])
+        }
+        return String(head).trimmingCharacters(in: .whitespaces)
+    }
+
     /// The most recent turns whose text fits `characterLimit`, oldest first.
     /// Older turns are dropped whole; a single turn longer than the limit is
     /// dropped too, so the prompt stays bounded.

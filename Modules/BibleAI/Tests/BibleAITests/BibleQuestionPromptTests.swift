@@ -88,6 +88,42 @@ struct BibleQuestionPromptTests {
     }
 
     @Test
+    func summaryPromptFoldsDroppedTurnsIntoThePreviousSummary() {
+        let turns = [BibleQuestionPrompt.Turn(question: "Who was Herod?", answer: "The king [Matthew 2:1].")]
+        let prompt = BibleQuestionPrompt.summary(of: turns, previousSummary: "They discussed Jesus' birth.")
+
+        #expect(prompt.user == "Summary so far:\nThey discussed Jesus' birth.\n\nConversation to add:\nUser: Who was Herod?\nAssistant: The king [Matthew 2:1].")
+        #expect(prompt.system.contains("language of the conversation"))
+        #expect(prompt.system.contains("verse references"))
+        #expect(prompt.isContentTransformation)
+
+        let first = BibleQuestionPrompt.summary(of: turns, previousSummary: nil, characterLimit: 250)
+        #expect(first.user.hasPrefix("Conversation to add:"))
+        #expect(first.system.contains("under 250 characters"))
+    }
+
+    @Test
+    func longSummariesAreCutAtTheLastSentenceThatFits() {
+        #expect(BibleQuestionPrompt.trimmedSummary("  Short.  ", characterLimit: 20) == "Short.")
+        #expect(BibleQuestionPrompt.trimmedSummary("One two. Three four five six.", characterLimit: 20) == "One two.")
+        #expect(BibleQuestionPrompt.trimmedSummary("No sentence end at all here", characterLimit: 10) == "No sentenc")
+    }
+
+    @Test
+    func answerPromptPutsTheSummaryBeforeRecentTurns() throws {
+        let prompt = BibleQuestionPrompt.answer(
+            question: "And then?",
+            passages: [],
+            history: [.init(question: "Recent?", answer: "Yes.")],
+            summary: "Earlier they asked about Moses."
+        )
+        let summary = try #require(prompt.user.range(of: "Summary of earlier conversation:\nEarlier they asked about Moses."))
+        let recent = try #require(prompt.user.range(of: "Earlier conversation:\nUser: Recent?"))
+        #expect(summary.lowerBound < recent.lowerBound)
+        #expect(!BibleQuestionPrompt.answer(question: "Q?", passages: []).user.contains("Summary of earlier"))
+    }
+
+    @Test
     func historyIsTrimmedOldestFirstToTheCharacterLimit() {
         let turns = (1...4).map { BibleQuestionPrompt.Turn(question: "Q\($0)", answer: String(repeating: "a", count: 8)) }
         // Each turn is 10 characters: a limit of 25 keeps the last two.
@@ -127,6 +163,25 @@ struct BibleQuestionPromptTests {
         let shortened = "In Bethlehem " + String(repeating: "x", count: 400 - 13)
         #expect(prompt.user == "Previous question: Where was Jesus born?\nPrevious answer: \(shortened)\nAbout the verse: John 3:16 For God so loved the world\nQuestion: And where did he die?")
         #expect(prompt.system.contains("previous answer"))
+    }
+
+    @Test
+    func keywordPromptGetsTheSummaryAndRecentEarlierQuestionsWithinALimit() {
+        let long = String(repeating: "q", count: 290)
+        let prompt = BibleQuestionPrompt.keywords(
+            for: "What did that brother make?",
+            previous: .init(question: "Where did the family flee?", answer: ""),
+            earlierQuestions: [long, "Who was Moses' brother?", "Where was Jesus born?"],
+            summary: "They talked about Aaron, Moses' brother."
+        )
+        // The oldest question no longer fits the 300-character limit.
+        #expect(prompt.user == """
+        Earlier conversation: They talked about Aaron, Moses' brother.
+        Earlier questions: Who was Moses' brother? | Where was Jesus born?
+        Previous question: Where did the family flee?
+        Question: What did that brother make?
+        """)
+        #expect(prompt.system.contains("earlier conversation"))
     }
 
     @Test

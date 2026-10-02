@@ -196,6 +196,100 @@ struct BibleChatModelTests {
         #expect(streamer.answerPrompts.last?.user.contains("Earlier conversation") == false)
     }
 
+    // Budget 300 → 100 characters of history. Each turn below is ~40–48
+    // characters, so the third answer pushes the first turn out.
+    private static let shortTurns = ["Where was Jesus born?", "Who was king?", "Where did they go?"]
+
+    @Test
+    func turnsThatNoLongerFitAreSummarizedAndTheSummaryIsSent() async throws {
+        let store = InMemoryChatStore()
+        let streamer = FakeStreamer(keywords: "born", answer: ["In Bethlehem [Matthew 2:1]."], summary: "  They asked where Jesus was born.  ")
+        let model = model(streamer: streamer, repository: try repository(), store: store, budget: 300)
+
+        for question in Self.shortTurns.prefix(2) {
+            await model.send(question).value
+        }
+        await model.summaryTask?.value
+        #expect(streamer.summaryPrompts.isEmpty, "No summary while the history fits")
+
+        await model.send(Self.shortTurns[2]).value
+        await model.summaryTask?.value
+
+        let summaryPrompt = try #require(streamer.summaryPrompts.only)
+        #expect(summaryPrompt.user == "Conversation to add:\nUser: Where was Jesus born?\nAssistant: In Bethlehem [Matthew 2:1].")
+        #expect(summaryPrompt.system.contains("under 50 characters"), "Half of the 100-character history allowance")
+        #expect(model.conversation.historySummary == "They asked where Jesus was born.")
+        #expect(model.conversation.summarizedMessageCount == 2)
+        #expect(try await store.load(model.conversation.id).historySummary == "They asked where Jesus was born.")
+
+        await model.send("And after that?").value
+        let prompt = try #require(streamer.answerPrompts.last).user
+        #expect(prompt.contains("Summary of earlier conversation:\nThey asked where Jesus was born."))
+        #expect(!prompt.contains("User: Where was Jesus born?"), "Summarized turns are not repeated")
+        let keywordPrompt = try #require(streamer.keywordPrompts.last).user
+        #expect(keywordPrompt.hasPrefix(
+            "Earlier conversation: They asked where Jesus was born.\nEarlier questions: Where was Jesus born? | Who was king?\nPrevious question: Where did they go?"
+        ), "Keywords see the summary and earlier questions, so later references resolve")
+
+        // The summary uses part of the 100-character history budget, so only
+        // the latest turn still fits beside it.
+        #expect(prompt.contains("User: Where did they go?\nAssistant:"))
+
+        // Turns that drop next are folded into the existing summary.
+        await model.summaryTask?.value
+        #expect(streamer.summaryPrompts.count == 2)
+        #expect(streamer.summaryPrompts.last?.user.hasPrefix("Summary so far:\nThey asked where Jesus was born.\n\nConversation to add:\nUser: Who was king?") == true)
+        #expect(model.conversation.summarizedMessageCount == 6, "Turns 2 and 3 no longer fit beside the summary")
+    }
+
+    @Test
+    func failedSummaryFallsBackToTrimming() async throws {
+        let streamer = FakeStreamer(keywords: "born", answer: ["In Bethlehem [Matthew 2:1]."], summary: nil)
+        let model = model(streamer: streamer, repository: try repository(), budget: 300)
+
+        for question in Self.shortTurns {
+            await model.send(question).value
+        }
+        await model.summaryTask?.value
+        #expect(streamer.summaryPrompts.count == 1)
+        #expect(model.conversation.historySummary == nil)
+
+        await model.send("And after that?").value
+        let prompt = try #require(streamer.answerPrompts.last).user
+        #expect(!prompt.contains("Summary of earlier conversation"))
+        #expect(prompt.contains("User: Where did they go?"))
+    }
+
+    @Test
+    func summaryFinishingAfterNewChatIsDiscarded() async throws {
+        let gate = AnswerGate()
+        let store = InMemoryChatStore()
+        let streamer = FakeStreamer(keywords: "born", answer: ["In Bethlehem [Matthew 2:1]."], summary: "Late summary.", summaryGate: gate)
+        let model = model(streamer: streamer, repository: try repository(), store: store, budget: 300)
+
+        for question in Self.shortTurns {
+            await model.send(question).value
+        }
+        let oldID = model.conversation.id
+        let summaryTask = try #require(model.summaryTask)
+        await gate.waitUntilStarted()
+        model.newChat()
+        await gate.release()
+        await summaryTask.value
+
+        #expect(model.conversation.historySummary == nil)
+        #expect(model.conversation.messages.isEmpty)
+        #expect(try await store.load(oldID).historySummary == nil)
+    }
+
+    @Test
+    func chatsSavedBeforeSummariesStillLoad() throws {
+        let json = #"{"id":"6F9619FF-8B86-D011-B42D-00CF4FC964FF","title":"Old","createdAt":0,"updatedAt":0,"messages":[]}"#
+        let conversation = try JSONDecoder().decode(ChatConversation.self, from: Data(json.utf8))
+        #expect(conversation.title == "Old")
+        #expect(conversation.historySummary == nil && conversation.summarizedMessageCount == nil)
+    }
+
     @Test
     func attachedVerseIsSentShownOnTheQuestionAndThenCleared() async throws {
         let repository = try repository()
@@ -332,14 +426,20 @@ private final class FakeStreamer: AIPromptStreaming, @unchecked Sendable {
     private let lock = NSLock()
     private let keywords: String?
     private let answer: [String]
+    private let summary: String?
+    private let summaryGate: AnswerGate?
     private var _gate: AnswerGate?
     private var _keywordPrompts: [BibleStudyPrompt] = []
     private var _answerPrompts: [BibleStudyPrompt] = []
+    private var _summaryPrompts: [BibleStudyPrompt] = []
 
-    init(keywords: String?, answer: [String], gate: AnswerGate? = nil) {
+    /// `summary` answers the summary prompt (nil throws), after `summaryGate`.
+    init(keywords: String?, answer: [String], gate: AnswerGate? = nil, summary: String? = nil, summaryGate: AnswerGate? = nil) {
         self.keywords = keywords
         self.answer = answer
         self._gate = gate
+        self.summary = summary
+        self.summaryGate = summaryGate
     }
 
     var gate: AnswerGate? {
@@ -349,18 +449,38 @@ private final class FakeStreamer: AIPromptStreaming, @unchecked Sendable {
 
     var keywordPrompts: [BibleStudyPrompt] { lock.withLock { _keywordPrompts } }
     var answerPrompts: [BibleStudyPrompt] { lock.withLock { _answerPrompts } }
+    var summaryPrompts: [BibleStudyPrompt] { lock.withLock { _summaryPrompts } }
 
     func streamResponse(to prompt: BibleStudyPrompt) -> AsyncThrowingStream<String, Error> {
         let isKeywordStep = prompt.system.contains("search keywords")
+        let isSummaryStep = prompt.system.hasPrefix("Summarize")
         lock.withLock {
-            if isKeywordStep { _keywordPrompts.append(prompt) } else { _answerPrompts.append(prompt) }
+            if isKeywordStep {
+                _keywordPrompts.append(prompt)
+            } else if isSummaryStep {
+                _summaryPrompts.append(prompt)
+            } else {
+                _answerPrompts.append(prompt)
+            }
         }
         let gate = isKeywordStep ? nil : self.gate
         let keywords = self.keywords
         let answer = self.answer
+        let summary = self.summary
+        let summaryGate = self.summaryGate
 
         return AsyncThrowingStream { continuation in
             Task {
+                if isSummaryStep {
+                    await summaryGate?.enter()
+                    if let summary {
+                        continuation.yield(summary)
+                        continuation.finish()
+                    } else {
+                        continuation.finish(throwing: AIEngineError.timedOut)
+                    }
+                    return
+                }
                 if isKeywordStep {
                     if let keywords {
                         continuation.yield(keywords)
@@ -430,4 +550,9 @@ struct CitationTextTests {
         #expect(links == [CitationLink.url(for: reference)!])
         #expect(CitationText.hasUnverified(citations))
     }
+}
+
+private extension Array {
+    /// The single element, or nil when there are zero or several.
+    var only: Element? { count == 1 ? first : nil }
 }

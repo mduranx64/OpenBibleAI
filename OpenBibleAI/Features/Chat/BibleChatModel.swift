@@ -99,6 +99,10 @@ final class BibleChatModel {
     @ObservationIgnored private let store: any ChatStore
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var task: Task<Void, Never>?
+    /// The background summary of turns that dropped out of the history
+    /// budget; exposed so tests can wait for it.
+    @ObservationIgnored private(set) var summaryTask: Task<Void, Never>?
+    @ObservationIgnored private var summaryGeneration = 0
 
     static let rankedVerseLimit = 20
     static let passageWindow = 2
@@ -145,8 +149,12 @@ final class BibleChatModel {
         generation += 1
         let requestGeneration = generation
 
-        // Context from earlier turns, before this question is added.
-        let history = Self.turns(in: conversation.messages)
+        // Context from earlier turns, before this question is added: the
+        // summary of older turns, then the turns after it.
+        let history = Self.turns(in: conversation.messages, from: conversation.summarizedMessageCount ?? 0).map(\.turn)
+        let summary = conversation.historySummary
+        // All earlier questions (short) except the latest, which goes with its answer.
+        let earlierQuestions = Array(conversation.messages.filter { $0.role == .user }.map(\.text).dropLast())
         let carried = carriedReferences()
         let focus = attachedVerse
         attachedVerse = nil
@@ -174,6 +182,8 @@ final class BibleChatModel {
         let request = Request(
             question: question,
             history: history,
+            summary: summary,
+            earlierQuestions: earlierQuestions,
             carried: carried,
             focus: focus,
             messageID: answer.id,
@@ -205,6 +215,7 @@ final class BibleChatModel {
     func newChat() {
         stop()
         generation += 1
+        cancelSummary()
         conversation = ChatConversation()
         citations = [:]
     }
@@ -216,6 +227,7 @@ final class BibleChatModel {
     func open(_ id: UUID) async {
         stop()
         generation += 1
+        cancelSummary()
         let requestGeneration = generation
         guard let loaded = try? await store.load(id), requestGeneration == generation else { return }
 
@@ -242,6 +254,8 @@ final class BibleChatModel {
     private struct Request {
         let question: String
         let history: [BibleQuestionPrompt.Turn]
+        let summary: String?
+        let earlierQuestions: [String]
         /// Verses the previous answer cited (checked), kept in view for follow-ups.
         let carried: [BibleReference]
         let focus: AttachedVerse?
@@ -261,8 +275,10 @@ final class BibleChatModel {
             // conversation and the attached verse's chapter, the rest (at
             // least a third) for retrieved passages.
             let budget = engine.passageBudget()
-            let history = BibleQuestionPrompt.trimmedHistory(request.history, characterLimit: budget / 3)
-            let historyCharacters = history.reduce(0) { $0 + $1.question.count + $1.answer.count }
+            let historyLimit = Self.historyLimit(budget: budget, summary: request.summary)
+            let history = BibleQuestionPrompt.trimmedHistory(request.history, characterLimit: historyLimit)
+            let historyCharacters = (request.summary?.count ?? 0)
+                + history.reduce(0) { $0 + $1.question.count + $1.answer.count }
             let focus = request.focus.map { attached in
                 BibleQuestionPrompt.FocusVerse(
                     bookName: attached.bookName,
@@ -280,6 +296,8 @@ final class BibleChatModel {
             let keywordPrompt = BibleQuestionPrompt.keywords(
                 for: request.question,
                 previous: request.history.last,
+                earlierQuestions: request.earlierQuestions,
+                summary: request.summary,
                 focus: focus
             )
             let suggested = (try? await streamer.response(to: keywordPrompt))
@@ -335,8 +353,9 @@ final class BibleChatModel {
                     BibleQuestionPrompt.Passage(bookName: names[$0.bookID] ?? $0.bookID, passage: $0)
                 },
                 history: history,
+                summary: request.summary,
                 focus: focus,
-                historyCharacterLimit: budget / 3
+                historyCharacterLimit: historyLimit
             )
             for try await delta in streamer.streamResponse(to: prompt) {
                 guard isCurrent() else { return }
@@ -353,6 +372,7 @@ final class BibleChatModel {
             updateAnswer(request.messageID) { $0.status = .completed }
             phase = .idle
             await save()
+            if isCurrent() { summarizeDroppedTurns() }
         } catch {
             guard request.generation == generation else { return }
             phase = .idle
@@ -406,13 +426,78 @@ final class BibleChatModel {
         return Array(references.prefix(Self.carriedReferenceLimit))
     }
 
-    /// Completed question/answer pairs, for follow-up context.
-    private static func turns(in messages: [ChatMessage]) -> [BibleQuestionPrompt.Turn] {
-        zip(messages, messages.dropFirst()).compactMap { question, answer in
+    /// Completed question/answer pairs from message `start` on, each with
+    /// the message count it reaches (index after its answer).
+    private static func turns(
+        in messages: [ChatMessage],
+        from start: Int
+    ) -> [(turn: BibleQuestionPrompt.Turn, end: Int)] {
+        let indices = Array(messages.indices.dropFirst(min(start, messages.count)))
+        return zip(indices, indices.dropFirst()).compactMap { questionIndex, answerIndex in
+            let question = messages[questionIndex]
+            let answer = messages[answerIndex]
             guard question.role == .user, answer.role == .assistant, !answer.text.isEmpty else { return nil }
             if case .failed = answer.status { return nil }
-            return BibleQuestionPrompt.Turn(question: question.text, answer: answer.text)
+            return (BibleQuestionPrompt.Turn(question: question.text, answer: answer.text), answerIndex + 1)
         }
+    }
+
+    /// At most half of the history allowance, so recent turns still fit.
+    private static func summaryLimit(budget: Int) -> Int {
+        min(BibleQuestionPrompt.summaryCharacterLimit, budget / 6)
+    }
+
+    /// Up to a third of the budget for earlier conversation, summary included.
+    private static func historyLimit(budget: Int, summary: String?) -> Int {
+        max(0, budget / 3 - (summary?.count ?? 0))
+    }
+
+    // MARK: - Summary
+
+    /// When turns no longer fit the history budget, asks the model in the
+    /// background to fold them into the conversation's summary. A question
+    /// sent meanwhile uses the previous summary; a failure leaves plain
+    /// trimming in place.
+    private func summarizeDroppedTurns() {
+        let budget = engine.passageBudget()
+        let start = conversation.summarizedMessageCount ?? 0
+        let all = Self.turns(in: conversation.messages, from: start)
+        let kept = BibleQuestionPrompt.trimmedHistory(
+            all.map(\.turn),
+            characterLimit: Self.historyLimit(budget: budget, summary: conversation.historySummary)
+        )
+        let dropped = all.prefix(all.count - kept.count)
+        guard let end = dropped.last?.end, let streamer = try? engine.makeStreamer() else { return }
+
+        summaryTask?.cancel()
+        summaryGeneration += 1
+        let summaryGeneration = summaryGeneration
+        let conversationID = conversation.id
+        let limit = Self.summaryLimit(budget: budget)
+        let prompt = BibleQuestionPrompt.summary(
+            of: dropped.map(\.turn),
+            previousSummary: conversation.historySummary,
+            characterLimit: limit
+        )
+
+        summaryTask = Task {
+            guard let text = try? await streamer.response(to: prompt) else { return }
+            let summary = BibleQuestionPrompt.trimmedSummary(text, characterLimit: limit)
+            guard !summary.isEmpty, !Task.isCancelled,
+                  summaryGeneration == self.summaryGeneration,
+                  conversation.id == conversationID,
+                  (conversation.summarizedMessageCount ?? 0) == start
+            else { return }
+            conversation.historySummary = summary
+            conversation.summarizedMessageCount = end
+            await save()
+        }
+    }
+
+    private func cancelSummary() {
+        summaryGeneration += 1
+        summaryTask?.cancel()
+        summaryTask = nil
     }
 
     // MARK: - Citations

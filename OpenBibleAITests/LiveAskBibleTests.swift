@@ -63,6 +63,30 @@ struct LiveAskBibleTests {
         print(report + "=== END ===\n")
     }
 
+    /// A long chat whose last question refers to the first one, which by
+    /// then has dropped out of the history and survives only in the summary.
+    @Test(.enabled(if: LiveAskBibleTests.engineName != nil))
+    func longChatsRememberEarlyTurnsThroughTheSummary() async throws {
+        // Half the engine's budget (the compact model's), so early turns are
+        // summarized within six questions.
+        let (model, _) = try await makeModel(budgetDivisor: 2)
+        var report = "\n=== OPENBIBLE LIVE LONG CHAT (\(Self.engineName ?? "")\(Self.useSemantic ? " + semantic" : "")) ===\n"
+        model.newChat()
+        for question in [
+            "Who was Moses' brother?",
+            "Where was Jesus born?",
+            "Who was king then?",
+            "What did the wise men bring?",
+            "Where did the family flee?",
+            "Going back to my first question: what did that brother make while Moses was on the mountain?",
+        ] {
+            report += try await ask(question, model)
+            await model.summaryTask?.value
+            report += "  [summary covers \(model.conversation.summarizedMessageCount ?? 0) messages: \(model.conversation.historySummary ?? "none")]\n\n"
+        }
+        print(report + "=== END ===\n")
+    }
+
     private func ask(_ question: String, _ model: BibleChatModel) async throws -> String {
         let clock = ContinuousClock()
         let start = clock.now
@@ -80,7 +104,7 @@ struct LiveAskBibleTests {
         """
     }
 
-    private func makeModel() async throws -> (BibleChatModel, JSONBibleRepository) {
+    private func makeModel(budgetDivisor: Int = 1) async throws -> (BibleChatModel, JSONBibleRepository) {
         let booksURL = try #require(Bundle.main.url(forResource: "kjv-books", withExtension: "json"))
         let versesURL = try #require(Bundle.main.url(forResource: "kjv-verses", withExtension: "json"))
         let catalog = try await JSONBibleBookCatalog.load(from: booksURL)
@@ -118,7 +142,7 @@ struct LiveAskBibleTests {
             passages: repository,
             verses: repository,
             books: { catalog.books },
-            engine: .init(makeStreamer: { streamer }, passageBudget: { budget }, semanticSearch: { searcher }),
+            engine: .init(makeStreamer: { streamer }, passageBudget: { budget / budgetDivisor }, semanticSearch: { searcher }),
             store: InMemoryChatStore()
         )
 
