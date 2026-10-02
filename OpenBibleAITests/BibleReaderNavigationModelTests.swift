@@ -127,6 +127,20 @@ struct BibleReaderNavigationModelTests {
         }
     }
 
+    @Test func openReferenceSelectsAndSavesLikeOpeningAVerse() async throws {
+        try await withStore { store in
+            let (repository, verse) = try fixture()
+            let model = BibleReaderNavigationModel(
+                search: BibleReferenceSearchModel(catalog: repository, verses: repository),
+                catalog: BibleCatalogModel(repository: repository), store: store
+            )
+            model.open(verse.reference)
+            #expect(model.selectedChapter == .init(bookID: "JOH", chapter: 3))
+            #expect(model.selectedReference == verse.reference)
+            #expect(try store.load() == ReadingPosition(bookID: "JOH", chapter: 3))
+        }
+    }
+
     @Test func openInvalidatesDelayedReferenceSearchAndRestoration() async throws {
         try await withStore { store in
             let (repository, verse) = try fixture()

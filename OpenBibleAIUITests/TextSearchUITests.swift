@@ -56,7 +56,7 @@ final class TextSearchUITests: XCTestCase {
             object: verse
         )
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed)
-        XCTAssertTrue(app.staticTexts["Ask About This Verse"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["attachedVerseChip"].waitForExistence(timeout: 10))
 
         textSearch("zzzqxj", in: app)
         XCTAssertTrue(app.staticTexts["No verses match."].waitForExistence(timeout: 10))

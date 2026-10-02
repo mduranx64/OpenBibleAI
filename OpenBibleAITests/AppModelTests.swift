@@ -21,10 +21,10 @@ struct AppModelTests {
         let stored = InMemoryBibleRepository(verses: [verse])
         let verses = CachingBibleRepository(base: stored)
         let model = AppModel(loadRepositories: {
-            AppModel.Repositories(verses: verses, catalog: catalog, text: stored)
+            AppModel.Repositories(verses: verses, catalog: catalog, text: stored, passages: stored)
         })
         await model.start()
-        guard case let .ready(_, _, search, _) = model.state else {
+        guard case let .ready(_, _, search, _, _) = model.state else {
             Issue.record("Expected search to be composed with the loaded repositories")
             return
         }
@@ -54,7 +54,8 @@ struct AppModelTests {
                 AppModel.Repositories(
                     verses: repository,
                     catalog: repository,
-                    text: repository
+                    text: repository,
+                    passages: repository
                 )
             }
         )
@@ -66,7 +67,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(readerModel, _, _, _) = appModel.state else {
+        guard case let .ready(readerModel, _, _, _, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -105,7 +106,8 @@ struct AppModelTests {
                 return AppModel.Repositories(
                     verses: repository,
                     catalog: repository,
-                    text: repository
+                    text: repository,
+                    passages: repository
                 )
             }
         )
@@ -140,14 +142,15 @@ struct AppModelTests {
                 AppModel.Repositories(
                     verses: CachingBibleRepository(base: repository),
                     catalog: repository,
-                    text: repository
+                    text: repository,
+                    passages: repository
                 )
             }
         )
 
         await appModel.start()
 
-        guard case let .ready(_, catalogModel, _, _) = appModel.state else {
+        guard case let .ready(_, catalogModel, _, _, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -170,14 +173,15 @@ struct AppModelTests {
                 AppModel.Repositories(
                     verses: repository,
                     catalog: repository,
-                    text: repository
+                    text: repository,
+                    passages: repository
                 )
             }
         )
 
         await appModel.start()
 
-        guard case let .ready(_, _, _, textSearch) = appModel.state else {
+        guard case let .ready(_, _, _, textSearch, _) = appModel.state else {
             Issue.record("Expected ready state")
             return
         }
@@ -194,18 +198,18 @@ struct AppModelTests {
 
 private actor CountingRepositoryLoader {
     private let repository:
-        any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository
+        any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository & BiblePassageSearchRepository
 
     private var count = 0
 
     init(
-        repository: any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository
+        repository: any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository & BiblePassageSearchRepository
     ) {
         self.repository = repository
     }
 
     func load() async throws
-        -> any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository
+        -> any BibleRepository & BibleCatalogRepository & BibleTextSearchRepository & BiblePassageSearchRepository
     {
         count += 1
 

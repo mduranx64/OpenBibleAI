@@ -107,8 +107,13 @@ final class BibleReaderNavigationModel {
     /// Opens a verse chosen from text-search results through the same
     /// selection and persistence path as an exact-reference search.
     func open(_ verse: BibleVerse) {
+        open(verse.reference)
+    }
+
+    /// Opens a verse by reference, e.g. a checked citation in an AI answer.
+    func open(_ reference: BibleReference) {
         cancelSearch()
-        apply(verse.reference)
+        apply(reference)
     }
 
     private func apply(_ reference: BibleReference) {

@@ -16,11 +16,17 @@ final class AIEngineModel {
     private(set) var choice: AIEngineChoice = .unavailable(.unsupportedDevice)
     private(set) var appleStatus: AppleModelStatus = .unavailable(.unsupportedSystem)
     private(set) var downloadState: DownloadState = .idle
+    /// Downloaded chat models on disk, whichever engine is in use (Apple's
+    /// model may be active while a downloaded Qwen still takes space).
+    private(set) var installedTiers: [MLXModelTier] = []
     let tier: MLXModelTier?
 
     @ObservationIgnored private let appleStatusProvider: @MainActor () -> AppleModelStatus
     @ObservationIgnored private let isSupportedHardware: Bool
     @ObservationIgnored private let store: (any LocalModelStoring)?
+    /// Stores of the other tier, which this device doesn't use but may hold
+    /// from an earlier download (e.g. after a memory-tier change or tests).
+    @ObservationIgnored private let otherStores: [MLXModelTier: any LocalModelStoring]
     @ObservationIgnored private var engine: MLXModelEngine?
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
     @ObservationIgnored private var downloadGeneration = 0
@@ -29,24 +35,28 @@ final class AIEngineModel {
         appleStatus: @escaping @MainActor () -> AppleModelStatus = { .current },
         tier: MLXModelTier?,
         isSupportedHardware: Bool = MLXModelTier.isSupportedHardware,
-        store: (any LocalModelStoring)?
+        store: (any LocalModelStoring)?,
+        otherStores: [MLXModelTier: any LocalModelStoring] = [:]
     ) {
         self.appleStatusProvider = appleStatus
         self.tier = tier
         self.isSupportedHardware = isSupportedHardware
         self.store = store
+        self.otherStores = otherStores.filter { $0.key != tier }
     }
 
     /// The app's engine: this device's tier, stored under Application Support.
     static func live() -> AIEngineModel {
         let tier = MLXModelTier.current
-        let store = tier.map { tier in
-            LocalModelStore(
-                manifest: tier.manifest,
-                directory: modelsDirectory.appendingPathComponent(tier.rawValue, isDirectory: true)
+        guard MLXModelTier.isSupportedHardware else { return AIEngineModel(tier: nil, store: nil) }
+        var stores: [MLXModelTier: any LocalModelStoring] = [:]
+        for candidate in [MLXModelTier.standard, .compact] {
+            stores[candidate] = LocalModelStore(
+                manifest: candidate.manifest,
+                directory: modelsDirectory.appendingPathComponent(candidate.rawValue, isDirectory: true)
             )
         }
-        return AIEngineModel(tier: tier, store: store)
+        return AIEngineModel(tier: tier, store: tier.flatMap { stores[$0] }, otherStores: stores)
     }
 
     private static var modelsDirectory: URL {
@@ -60,6 +70,14 @@ final class AIEngineModel {
     func refresh() async {
         appleStatus = appleStatusProvider()
         let installed = await store?.isInstalled() ?? false
+        var tiers: [MLXModelTier] = []
+        for candidate in [MLXModelTier.standard, .compact] {
+            let isInstalled = candidate == tier
+                ? installed
+                : await otherStores[candidate]?.isInstalled() ?? false
+            if isInstalled { tiers.append(candidate) }
+        }
+        installedTiers = tiers
         choice = .choose(
             apple: appleStatus,
             mlxTier: tier,
@@ -81,6 +99,15 @@ final class AIEngineModel {
         case .needsDownload, .unavailable:
             throw AIEngineError.modelUnavailable
         }
+    }
+
+    /// The same engine as `makeProvider()`, for prompts built elsewhere
+    /// (the "Ask the Bible" pipeline).
+    func makePromptStreamer() throws -> any AIPromptStreaming {
+        guard let streamer = try makeProvider() as? any AIPromptStreaming else {
+            throw AIEngineError.modelUnavailable
+        }
+        return streamer
     }
 
     /// Chapter-context bound for the engine in use (smaller for compact models).
@@ -145,6 +172,14 @@ final class AIEngineModel {
             self.engine = nil
         }
         try? await store?.delete()
+        await refresh()
+    }
+
+    /// Deletes a downloaded model of either tier; the device's own tier goes
+    /// through `deleteModel()` so a loaded model is unloaded first.
+    func deleteModel(_ tier: MLXModelTier) async {
+        guard tier != self.tier else { return await deleteModel() }
+        try? await otherStores[tier]?.delete()
         await refresh()
     }
 

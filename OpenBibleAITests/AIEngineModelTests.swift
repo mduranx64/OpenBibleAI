@@ -83,6 +83,43 @@ struct AIEngineModelTests {
     }
 
     @Test
+    func downloadedModelIsListedAndDeletableWhileAppleIsInUse() async throws {
+        let store = FakeModelStore(installed: true)
+        let engine = model(apple: .available, tier: .standard, store: store)
+        await engine.refresh()
+        #expect(engine.choice == .apple)
+        #expect(engine.installedTiers == [.standard])
+
+        await engine.deleteModel(.standard)
+
+        #expect(store.deleted)
+        #expect(engine.installedTiers.isEmpty)
+        #expect(engine.choice == .apple)
+    }
+
+    @Test
+    func otherTierLeftoverIsListedAndDeletedWithoutTouchingTheDevicesModel() async throws {
+        let own = FakeModelStore(installed: true)
+        let leftover = FakeModelStore(installed: true)
+        let engine = AIEngineModel(
+            appleStatus: { .unavailable(.deviceNotEligible) },
+            tier: .standard,
+            isSupportedHardware: true,
+            store: own,
+            otherStores: [.compact: leftover]
+        )
+        await engine.refresh()
+        #expect(engine.installedTiers == [.standard, .compact])
+
+        await engine.deleteModel(.compact)
+
+        #expect(leftover.deleted)
+        #expect(!own.deleted)
+        #expect(engine.installedTiers == [.standard])
+        #expect(engine.choice == .mlx(.standard))
+    }
+
+    @Test
     func unsupportedDevicesExplainInsteadOfOfferingDownload() async throws {
         let engine = model(apple: .unavailable(.unsupportedSystem), tier: nil)
         await engine.refresh()

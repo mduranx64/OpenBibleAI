@@ -8,7 +8,7 @@ import Testing
 
 /// Real MLX check, separate from the mocked tests: downloads the pinned model
 /// (verifying SHA-256), loads it with MLX and streams an answer using real KJV
-/// chapter context. Skipped unless `OPENBIBLE_LIVE_MLX=standard|compact`
+/// chapter context through the chat (verse attached). Skipped unless `OPENBIBLE_LIVE_MLX=standard|compact`
 /// (forward with `TEST_RUNNER_OPENBIBLE_LIVE_MLX=…`). The model is stored
 /// where the app keeps it, so the app can reuse it. Prints the answer for a
 /// human to read; asserts only that it streams without a think block.
@@ -44,31 +44,33 @@ struct LiveMLXModelTests {
         try await engine.prepare()
         let loadTime = clock.now - loadStart
 
-        let model = StudyAssistantModel(
-            provider: MLXModelProvider(engine: engine, maximumResponseTokens: tier.maximumResponseTokens)
+        let provider = MLXModelProvider(engine: engine, maximumResponseTokens: tier.maximumResponseTokens)
+        let model = BibleChatModel(
+            passages: repository,
+            verses: repository,
+            books: { catalog.books },
+            engine: .init(makeStreamer: { provider }, passageBudget: { tier.contextCharacterLimit }),
+            store: InMemoryChatStore()
         )
+        model.attach(verse: selected, bookName: "John", chapterVerses: chapter)
         let answerStart = clock.now
-        await model.ask(
-            verse: selected,
-            bookName: "John",
-            chapterVerses: chapter,
-            question: "In one or two sentences, what does this verse say about God's motive?"
-        )
+        await model.send("In one or two sentences, what does this verse say about God's motive?").value
         let answerTime = clock.now - answerStart
+        let answer = try #require(model.conversation.messages.last)
 
         print("""
 
         === OPENBIBLE LIVE MLX (\(tier.displayName)) ===
         download/verify: \(downloadTime), load: \(loadTime), answer: \(answerTime)
-        state: \(model.state)
-        \(model.answer)
+        status: \(answer.status)
+        \(answer.text)
         === END ===
 
         """)
 
-        #expect(model.state == .completed)
-        #expect(!model.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        #expect(!model.answer.contains("<think>"))
+        #expect(answer.status == .completed)
+        #expect(!answer.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #expect(!answer.text.contains("<think>"))
         await engine.unload()
     }
 }

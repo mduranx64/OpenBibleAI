@@ -50,11 +50,11 @@ final class WindowLayoutUITests: XCTestCase {
         field.typeText("John 3:16")
         app.buttons["referenceSearchButton"].click()
 
-        // Searching selects the verse, which also opens the study panel: the
-        // case where the reading column was squeezed the most.
+        // Searching selects the verse, which also attaches it to the chat
+        // panel: the case where the reading column was squeezed the most.
         let verse = app.buttons["verse-JOH-3-16"]
         XCTAssertTrue(verse.waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["studyVerseReference"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["attachedVerseChip"].waitForExistence(timeout: 10))
         // A verse row sits about 120 pt inside its column. It measured 135
         // (column ~200) before the fix and ~323 (column ~445) after.
         XCTAssertGreaterThanOrEqual(
@@ -81,7 +81,7 @@ final class WindowLayoutUITests: XCTestCase {
 
         let verse = app.buttons["verse-JOH-3-16"]
         XCTAssertTrue(verse.waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["studyVerseReference"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["attachedVerseChip"].waitForExistence(timeout: 10))
         XCTAssertGreaterThanOrEqual(
             verse.frame.width, 400,
             "On first launch the reading column should be well above its minimum"

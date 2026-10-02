@@ -1,0 +1,489 @@
+import BibleAI
+import BibleDomain
+import Foundation
+import Observation
+
+/// The Bible chat: answers questions from retrieved KJV passages (plus an
+/// attached verse), remembers recent turns for follow-ups, checks every
+/// answer's citations, and saves conversations on device. App-level, so a
+/// chat survives verse changes (tapping a citation opens a verse).
+@MainActor
+@Observable
+final class BibleChatModel {
+    /// The generation engine, read for every question so it follows the
+    /// current choice (Apple model or downloaded model).
+    struct Engine {
+        let makeStreamer: @MainActor @Sendable () throws -> any AIPromptStreaming
+        /// Characters of Bible text (passages, attached verse) and earlier
+        /// conversation the engine can take with one question.
+        let passageBudget: @MainActor @Sendable () -> Int
+        /// Meaning-based ranking for a question, when the optional search
+        /// model is installed; nil otherwise.
+        let semanticSearch: @MainActor @Sendable () -> (@Sendable (String) async throws -> [RankedVerse])?
+
+        init(
+            makeStreamer: @escaping @MainActor @Sendable () throws -> any AIPromptStreaming,
+            passageBudget: @escaping @MainActor @Sendable () -> Int,
+            semanticSearch: @escaping @MainActor @Sendable () -> (@Sendable (String) async throws -> [RankedVerse])? = { nil }
+        ) {
+            self.makeStreamer = makeStreamer
+            self.passageBudget = passageBudget
+            self.semanticSearch = semanticSearch
+        }
+
+        static var unavailable: Engine {
+            Engine(
+                makeStreamer: { throw AIEngineError.modelUnavailable },
+                passageBudget: { BibleStudyContext.defaultCharacterLimit }
+            )
+        }
+    }
+
+    /// Progress of the answer being generated, if any.
+    enum Phase: Equatable {
+        case idle
+        case searching
+        case answering
+    }
+
+    /// A verse selected in the reader, shown as a removable chip and sent
+    /// with the next question.
+    struct AttachedVerse: Equatable {
+        let verse: BibleVerse
+        let bookName: String
+        let chapterVerses: [BibleVerse]
+
+        var title: String {
+            "\(bookName) \(verse.reference.chapter):\(verse.reference.verse)"
+        }
+    }
+
+    /// A citation found in an answer, after checking it against the Bible.
+    struct ResolvedCitation: Equatable {
+        enum Status: Equatable {
+            /// Every cited verse is in the passages the answer was given.
+            case grounded
+            /// The verses exist, but were not among the passages the answer
+            /// was given, so the answer's claim about them was not checked.
+            case outsideSources
+            /// Unknown book, unreadable citation, or a verse that doesn't exist.
+            case notFound
+        }
+
+        struct Item: Equatable {
+            let label: String
+            /// Nil when the citation could not be read (e.g. unknown book).
+            let reference: BibleReference?
+            let status: Status
+
+            var isVerified: Bool { status == .grounded }
+        }
+
+        /// Range of the citation within the message text.
+        let range: Range<String.Index>
+        let items: [Item]
+    }
+
+    private(set) var conversation = ChatConversation()
+    private(set) var phase: Phase = .idle
+    private(set) var attachedVerse: AttachedVerse?
+    /// Saved chats, newest first.
+    private(set) var summaries: [ChatSummary] = []
+    /// Checked citations per assistant message.
+    private(set) var citations: [UUID: [ResolvedCitation]] = [:]
+
+    @ObservationIgnored private let passageSearch: any BiblePassageSearchRepository
+    @ObservationIgnored private let verses: any BibleRepository
+    @ObservationIgnored private let books: @Sendable () async throws -> [BibleBook]
+    @ObservationIgnored private let engine: Engine
+    @ObservationIgnored private let store: any ChatStore
+    @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var task: Task<Void, Never>?
+
+    static let rankedVerseLimit = 20
+    static let passageWindow = 2
+    static let passageLimit = 6
+    static let titleLength = 60
+    static let carriedReferenceLimit = 4
+
+    init(
+        passages: any BiblePassageSearchRepository,
+        verses: any BibleRepository,
+        books: @escaping @Sendable () async throws -> [BibleBook],
+        engine: Engine,
+        store: any ChatStore
+    ) {
+        self.passageSearch = passages
+        self.verses = verses
+        self.books = books
+        self.engine = engine
+        self.store = store
+    }
+
+    var isAnswering: Bool { phase != .idle }
+
+    // MARK: - Attached verse
+
+    func attach(verse: BibleVerse, bookName: String, chapterVerses: [BibleVerse]) {
+        attachedVerse = AttachedVerse(verse: verse, bookName: bookName, chapterVerses: chapterVerses)
+    }
+
+    func detach() {
+        attachedVerse = nil
+    }
+
+    // MARK: - Asking
+
+    /// Sends `text` with the attached verse (which is then cleared) and
+    /// starts answering it. An answer in progress is stopped first.
+    @discardableResult
+    func send(_ text: String) -> Task<Void, Never> {
+        let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !question.isEmpty else { return Task {} }
+        if isAnswering { stop() }
+
+        generation += 1
+        let requestGeneration = generation
+
+        // Context from earlier turns, before this question is added.
+        let history = Self.turns(in: conversation.messages)
+        let carried = carriedReferences()
+        let focus = attachedVerse
+        attachedVerse = nil
+
+        if conversation.title.isEmpty {
+            conversation.title = String(question.prefix(Self.titleLength))
+        }
+        conversation.messages.append(ChatMessage(
+            role: .user,
+            text: question,
+            attachedVerse: focus.map {
+                ChatVerseRange(
+                    bookID: $0.verse.reference.bookID,
+                    chapter: $0.verse.reference.chapter,
+                    firstVerse: $0.verse.reference.verse,
+                    lastVerse: $0.verse.reference.verse,
+                    bookName: $0.bookName
+                )
+            }
+        ))
+        let answer = ChatMessage(role: .assistant, text: "")
+        conversation.messages.append(answer)
+        phase = .searching
+
+        let request = Request(
+            question: question,
+            history: history,
+            carried: carried,
+            focus: focus,
+            messageID: answer.id,
+            generation: requestGeneration
+        )
+        let newTask = Task { await run(request) }
+        task = newTask
+        return newTask
+    }
+
+    /// Stops the answer in progress, keeping what was generated so far.
+    func stop() {
+        guard isAnswering else { return }
+        generation += 1
+        task?.cancel()
+        task = nil
+        phase = .idle
+        if let index = conversation.messages.lastIndex(where: { $0.role == .assistant }) {
+            conversation.messages[index].status = .stopped
+        }
+        // Saved from a snapshot: New Chat may replace `conversation` first.
+        let snapshot = stampedConversation()
+        Task { await persist(snapshot) }
+    }
+
+    // MARK: - Conversations
+
+    /// Starts an empty chat; the current one is already saved.
+    func newChat() {
+        stop()
+        generation += 1
+        conversation = ChatConversation()
+        citations = [:]
+    }
+
+    func loadSummaries() async {
+        summaries = (try? await store.summaries()) ?? []
+    }
+
+    func open(_ id: UUID) async {
+        stop()
+        generation += 1
+        let requestGeneration = generation
+        guard let loaded = try? await store.load(id), requestGeneration == generation else { return }
+
+        conversation = loaded
+        citations = [:]
+        guard let books = try? await self.books(), requestGeneration == generation else { return }
+        let names = Self.names(for: books)
+        for message in loaded.messages where message.role == .assistant {
+            let grounding = Set(message.sources.flatMap(\.references))
+            let resolved = await resolveCitations(in: message.text, books: books, names: names, grounding: grounding)
+            guard requestGeneration == generation else { return }
+            citations[message.id] = resolved
+        }
+    }
+
+    func delete(_ id: UUID) async {
+        if id == conversation.id { newChat() }
+        try? await store.delete(id)
+        await loadSummaries()
+    }
+
+    // MARK: - Pipeline
+
+    private struct Request {
+        let question: String
+        let history: [BibleQuestionPrompt.Turn]
+        /// Verses the previous answer cited (checked), kept in view for follow-ups.
+        let carried: [BibleReference]
+        let focus: AttachedVerse?
+        let messageID: UUID
+        let generation: Int
+    }
+
+    private func run(_ request: Request) async {
+        func isCurrent() -> Bool { request.generation == generation && !Task.isCancelled }
+
+        do {
+            let streamer = try engine.makeStreamer()
+            let books = try await self.books()
+            let names = Self.names(for: books)
+
+            // The budget is shared: up to a third each for earlier
+            // conversation and the attached verse's chapter, the rest (at
+            // least a third) for retrieved passages.
+            let budget = engine.passageBudget()
+            let history = BibleQuestionPrompt.trimmedHistory(request.history, characterLimit: budget / 3)
+            let historyCharacters = history.reduce(0) { $0 + $1.question.count + $1.answer.count }
+            let focus = request.focus.map { attached in
+                BibleQuestionPrompt.FocusVerse(
+                    bookName: attached.bookName,
+                    verse: attached.verse,
+                    context: BibleStudyContext.verses(
+                        in: attached.chapterVerses,
+                        around: attached.verse.reference,
+                        characterLimit: budget / 3
+                    )
+                )
+            }
+            let focusCharacters = focus.map { ($0.context.isEmpty ? [$0.verse] : $0.context).reduce(0) { $0 + $1.text.count } } ?? 0
+
+            // 1. Keywords (any language → English KJV words); optional.
+            let keywordPrompt = BibleQuestionPrompt.keywords(
+                for: request.question,
+                previous: request.history.last,
+                focus: focus
+            )
+            let suggested = (try? await streamer.response(to: keywordPrompt))
+                .map(SearchKeywordParser.keywords(from:)) ?? []
+            guard isCurrent() else { return }
+
+            // 2. Retrieval: keyword ranking, fused with meaning-based ranking
+            //    when available and with the verses the previous answer cited,
+            //    so a follow-up like "who said it?" keeps its passage. The
+            //    meaning-based query includes the previous question.
+            let keywordRanked = try await passageSearch.rankedVerses(
+                matching: suggested + [request.question],
+                limit: Self.rankedVerseLimit
+            )
+            var rankings = [keywordRanked]
+            var usedSemanticSearch = false
+            let semanticQuery = [request.history.last?.question, request.question]
+                .compactMap(\.self).joined(separator: " ")
+            if let semanticSearch = engine.semanticSearch(),
+               let semantic = try? await semanticSearch(semanticQuery), !semantic.isEmpty {
+                guard isCurrent() else { return }
+                usedSemanticSearch = true
+                rankings.append(semantic)
+            }
+            if !request.carried.isEmpty {
+                rankings.append(request.carried.map { RankedVerse(reference: $0, score: 1) })
+            }
+            let ranked = rankings.count == 1
+                ? keywordRanked
+                : RankFusion.reciprocalRank(rankings, limit: Self.rankedVerseLimit)
+            let passages = try await passageSearch.passages(
+                around: ranked.map(\.reference),
+                window: Self.passageWindow,
+                limit: Self.passageLimit,
+                characterBudget: max(budget / 3, budget - focusCharacters - historyCharacters)
+            )
+            guard isCurrent() else { return }
+
+            var sources = passages.compactMap { Self.range(for: $0.verses, bookName: names[$0.bookID]) }
+            if let focus, let range = Self.range(for: focus.context, bookName: focus.bookName) {
+                sources.insert(range, at: 0)
+            }
+            updateAnswer(request.messageID) {
+                $0.sources = sources
+                $0.usedSemanticSearch = usedSemanticSearch
+            }
+
+            // 3. Answer, streamed.
+            phase = .answering
+            let prompt = BibleQuestionPrompt.answer(
+                question: request.question,
+                passages: passages.map {
+                    BibleQuestionPrompt.Passage(bookName: names[$0.bookID] ?? $0.bookID, passage: $0)
+                },
+                history: history,
+                focus: focus,
+                historyCharacterLimit: budget / 3
+            )
+            for try await delta in streamer.streamResponse(to: prompt) {
+                guard isCurrent() else { return }
+                updateAnswer(request.messageID) { $0.text += delta }
+            }
+            guard isCurrent() else { return }
+
+            // 4. Check every citation against the Bible.
+            let text = message(request.messageID)?.text ?? ""
+            let grounding = Set(sources.flatMap(\.references))
+            let resolved = await resolveCitations(in: text, books: books, names: names, grounding: grounding)
+            guard isCurrent() else { return }
+            citations[request.messageID] = resolved
+            updateAnswer(request.messageID) { $0.status = .completed }
+            phase = .idle
+            await save()
+        } catch {
+            guard request.generation == generation else { return }
+            phase = .idle
+            if !(Task.isCancelled || error is CancellationError) {
+                updateAnswer(request.messageID) { $0.status = .failed(Self.message(for: error)) }
+            }
+            await save()
+        }
+    }
+
+    private func message(_ id: UUID) -> ChatMessage? {
+        conversation.messages.first { $0.id == id }
+    }
+
+    private func updateAnswer(_ id: UUID, _ change: (inout ChatMessage) -> Void) {
+        guard let index = conversation.messages.firstIndex(where: { $0.id == id }) else { return }
+        change(&conversation.messages[index])
+    }
+
+    private func save() async {
+        await persist(stampedConversation())
+    }
+
+    private func stampedConversation() -> ChatConversation {
+        conversation.updatedAt = .now
+        return conversation
+    }
+
+    private func persist(_ snapshot: ChatConversation) async {
+        guard !snapshot.messages.isEmpty else { return }
+        try? await store.save(snapshot)
+        await loadSummaries()
+    }
+
+    /// Verses the latest answer cited and that were checked against its
+    /// sources, plus the verse attached to its question.
+    private func carriedReferences() -> [BibleReference] {
+        guard let answerIndex = conversation.messages.lastIndex(where: { $0.role == .assistant }) else { return [] }
+        let answer = conversation.messages[answerIndex]
+        var references: [BibleReference] = []
+        if answerIndex > 0, let attached = conversation.messages[answerIndex - 1].attachedVerse?.reference {
+            references.append(attached)
+        }
+        for citation in citations[answer.id] ?? [] {
+            for item in citation.items where item.isVerified {
+                if let reference = item.reference, !references.contains(reference) {
+                    references.append(reference)
+                }
+            }
+        }
+        return Array(references.prefix(Self.carriedReferenceLimit))
+    }
+
+    /// Completed question/answer pairs, for follow-up context.
+    private static func turns(in messages: [ChatMessage]) -> [BibleQuestionPrompt.Turn] {
+        zip(messages, messages.dropFirst()).compactMap { question, answer in
+            guard question.role == .user, answer.role == .assistant, !answer.text.isEmpty else { return nil }
+            if case .failed = answer.status { return nil }
+            return BibleQuestionPrompt.Turn(question: question.text, answer: answer.text)
+        }
+    }
+
+    // MARK: - Citations
+
+    private func resolveCitations(
+        in text: String,
+        books: [BibleBook],
+        names: [String: String],
+        grounding: Set<BibleReference>
+    ) async -> [ResolvedCitation] {
+        var resolved: [ResolvedCitation] = []
+        for citation in CitationParser.citations(in: text, books: books) {
+            var items: [ResolvedCitation.Item] = []
+            for item in citation.items {
+                switch item {
+                case let .reference(reference, endVerse):
+                    let name = names[reference.bookID] ?? reference.bookID
+                    let range = endVerse.map { "\(reference.verse)–\($0)" } ?? "\(reference.verse)"
+                    let status: ResolvedCitation.Status
+                    if Self.cited(reference, through: endVerse).allSatisfy(grounding.contains) {
+                        status = .grounded
+                    } else if await exists(reference, through: endVerse) {
+                        status = .outsideSources
+                    } else {
+                        status = .notFound
+                    }
+                    items.append(.init(
+                        label: "\(name) \(reference.chapter):\(range)",
+                        reference: reference,
+                        status: status
+                    ))
+                case let .unrecognized(text):
+                    items.append(.init(label: text, reference: nil, status: .notFound))
+                }
+            }
+            resolved.append(ResolvedCitation(range: citation.range, items: items))
+        }
+        return resolved
+    }
+
+    private static func cited(_ reference: BibleReference, through endVerse: Int?) -> [BibleReference] {
+        (reference.verse...max(reference.verse, endVerse ?? reference.verse)).compactMap {
+            try? BibleReference(bookID: reference.bookID, chapter: reference.chapter, verse: $0)
+        }
+    }
+
+    private func exists(_ reference: BibleReference, through endVerse: Int?) async -> Bool {
+        guard (try? await verses.verse(at: reference)) != nil else { return false }
+        guard let endVerse,
+              let last = try? BibleReference(bookID: reference.bookID, chapter: reference.chapter, verse: endVerse)
+        else { return true }
+        return (try? await verses.verse(at: last)) != nil
+    }
+
+    private static func names(for books: [BibleBook]) -> [String: String] {
+        Dictionary(books.map { ($0.bookID, $0.name) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// The range covered by consecutive verses of one chapter.
+    private static func range(for verses: [BibleVerse], bookName: String?) -> ChatVerseRange? {
+        guard let first = verses.first?.reference, let last = verses.last?.reference else { return nil }
+        return ChatVerseRange(
+            bookID: first.bookID,
+            chapter: first.chapter,
+            firstVerse: first.verse,
+            lastVerse: last.verse,
+            bookName: bookName ?? first.bookID
+        )
+    }
+
+    private static func message(for error: any Error) -> String {
+        (error as? any LocalizedError)?.errorDescription ?? String(describing: error)
+    }
+}

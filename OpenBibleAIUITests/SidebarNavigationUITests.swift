@@ -88,7 +88,10 @@ final class SidebarNavigationUITests: XCTestCase {
         field.typeText("Malachi 4:6")
         app.buttons["referenceSearchButton"].click()
         expectTitle("Malachi 4", in: app)
-        app.buttons["Next Chapter"].click()
+        // The shortcut runs the same action as the button; clicking can fail
+        // to hit-test when the window sits on a secondary display.
+        XCTAssertTrue(app.buttons["Next Chapter"].isEnabled)
+        app.typeKey("]", modifierFlags: .command)
         expectTitle("Matthew 1", in: app)
         XCTAssertTrue(app.buttons["chapter-MAT-1"].waitForExistence(timeout: 10), "Sidebar follows to the new book")
         app.terminate()

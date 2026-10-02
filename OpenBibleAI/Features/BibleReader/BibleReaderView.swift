@@ -10,8 +10,9 @@ import BibleDomain
 
 struct BibleReaderView: View {
     let model: BibleReaderModel
-    let studyAssistantModel: StudyAssistantModel
     let aiEngine: AIEngineModel
+    let chatModel: BibleChatModel
+    let semanticSearch: SemanticSearchModel
     let catalogModel: BibleCatalogModel
     let textSearchModel: BibleTextSearchModel
 
@@ -29,6 +30,9 @@ struct BibleReaderView: View {
     /// Drill-down: the book list, or the chapter grid of the selected book.
     @State private var showsBookList = true
     @State private var bookFilter = ""
+    /// A verse opened from the chat (citation or source); it is shown in
+    /// the reader but not attached to the next question.
+    @State private var openedFromChat: BibleReference?
 
     private typealias ChapterSelection = BibleReaderNavigationModel.ChapterSelection
     private var selectedBookID: String? { navigation.selectedBookID }
@@ -38,16 +42,18 @@ struct BibleReaderView: View {
 
     init(
         model: BibleReaderModel,
-        studyAssistantModel: StudyAssistantModel,
         aiEngine: AIEngineModel,
+        chatModel: BibleChatModel,
+        semanticSearch: SemanticSearchModel,
         catalogModel: BibleCatalogModel,
         searchModel: BibleReferenceSearchModel,
         textSearchModel: BibleTextSearchModel,
         readingPositionStore: ReadingPositionStore
     ) {
         self.model = model
-        self.studyAssistantModel = studyAssistantModel
         self.aiEngine = aiEngine
+        self.chatModel = chatModel
+        self.semanticSearch = semanticSearch
         self.catalogModel = catalogModel
         self.textSearchModel = textSearchModel
         _navigation = State(initialValue: BibleReaderNavigationModel(
@@ -102,19 +108,12 @@ struct BibleReaderView: View {
                 .navigationSplitViewColumnWidth(min: 360, ideal: 560)
                 .navigationTitle(locationTitle)
         } detail: {
-            Group {
-                if let reference = activeReference {
-                    studyContent(for: reference)
-                } else {
-                    ContentUnavailableView(
-                        "AI Study Assistant",
-                        systemImage: "sparkles",
-                        description: Text(
-                            "Select a verse to begin studying."
-                        )
-                    )
-                }
-            }
+            BibleChatView(
+                model: chatModel,
+                engine: aiEngine,
+                semanticSearch: semanticSearch,
+                open: openFromChat
+            )
             // One rule for every study-panel state, capped so spare width
             // goes to the reading column instead.
             .navigationSplitViewColumnWidth(min: 320, ideal: 380, max: 480)
@@ -128,12 +127,22 @@ struct BibleReaderView: View {
             navigation.cancelSearch()
             textSearchModel.cancel()
         }
-        .task(id: activeReference) {
-            guard let reference = activeReference else {
+        .onChange(of: activeReference) { _, reference in
+            // A verse you choose attaches to the next chat question; a verse
+            // opened from the chat only shows in the reader.
+            guard let reference else { return }
+            if reference == openedFromChat {
+                openedFromChat = nil
                 return
             }
-
-            await model.load(reference: reference)
+            openedFromChat = nil
+            let chapterVerses = loadedChapterVerses(for: reference)
+            guard let verse = chapterVerses.first(where: { $0.reference == reference }) else { return }
+            chatModel.attach(
+                verse: verse,
+                bookName: bookName(for: reference.bookID) ?? reference.bookID,
+                chapterVerses: chapterVerses
+            )
         }
     }
     
@@ -367,42 +376,6 @@ struct BibleReaderView: View {
     }
     
     @ViewBuilder
-    private func studyContent(
-        for reference: BibleReference
-    ) -> some View {
-        switch model.state {
-        case .idle, .loading:
-            ProgressView("Loading selected verse…")
-
-        case let .loaded(verse):
-            if verse.reference == reference {
-                StudyAssistantView(
-                    model: studyAssistantModel,
-                    engine: aiEngine,
-                    verse: verse,
-                    bookName: bookName(for: verse.reference.bookID),
-                    chapterVerses: loadedChapterVerses(for: verse.reference)
-                )
-                .id(verse.reference)
-            } else {
-                ProgressView("Loading selected verse…")
-            }
-
-        case .failed:
-            VStack(spacing: 12) {
-                Text("Couldn’t load the selected verse")
-                    .font(.headline)
-
-                Button("Retry") {
-                    Task {
-                        await model.load(reference: reference)
-                    }
-                }
-            }
-        }
-    }
-    
-    @ViewBuilder
     private var chapterNavigationControls: some View {
         if selectedChapter != nil {
             HStack {
@@ -450,6 +423,11 @@ struct BibleReaderView: View {
             .padding()
             .background(.bar)
         }
+    }
+
+    private func openFromChat(_ reference: BibleReference) {
+        openedFromChat = reference == activeReference ? nil : reference
+        navigation.open(reference)
     }
 
     private func selectChapter(_ chapter: Int, in bookID: String) {

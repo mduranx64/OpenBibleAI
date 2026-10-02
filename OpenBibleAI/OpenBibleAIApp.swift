@@ -13,12 +13,15 @@ import BibleDomain
 @main
 struct OpenBibleAIApp: App {
     @State private var appModel: AppModel
-    @State private var studyAssistantModel: StudyAssistantModel
     @State private var aiEngine: AIEngineModel
+    @State private var semanticSearch: SemanticSearchModel
     private let readingPositionStore: ReadingPositionStore
 
     @MainActor
     init() {
+        let aiEngine = AIEngineModel.live()
+        let semanticSearch = SemanticSearchModel.live()
+
         let appModel = AppModel(
             loadRepositories: {
                 guard let booksURL = Bundle.main.url(
@@ -47,40 +50,34 @@ struct OpenBibleAIApp: App {
                 return AppModel.Repositories(
                     verses: CachingBibleRepository(base: repository),
                     catalog: repository,
-                    text: repository
+                    text: repository,
+                    passages: repository
                 )
-            }
+            },
+            chatEngine: BibleChatModel.Engine(
+                makeStreamer: { try aiEngine.makePromptStreamer() },
+                passageBudget: { aiEngine.contextCharacterLimit },
+                semanticSearch: { semanticSearch.searcher() }
+            ),
+            chatStore: FileChatStore.live()
         )
         
         self.readingPositionStore = ReadingPositionStore(
             defaults: UserDefaults.standard
         )
         
-        let aiEngine = AIEngineModel.live()
-
-        let assistantModel = StudyAssistantModel(
-            makeProvider: {
-                try aiEngine.makeProvider()
-            },
-            contextCharacterLimit: {
-                aiEngine.contextCharacterLimit
-            }
-        )
-
         _appModel = State(initialValue: appModel)
-        _studyAssistantModel = State(
-            initialValue: assistantModel
-        )
         
         _aiEngine = State(initialValue: aiEngine)
+        _semanticSearch = State(initialValue: semanticSearch)
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView(
                 appModel: appModel,
-                studyAssistantModel: studyAssistantModel,
                 aiEngine: aiEngine,
+                semanticSearch: semanticSearch,
                 readingPositionStore: readingPositionStore
             )
         }
@@ -89,7 +86,7 @@ struct OpenBibleAIApp: App {
 
         #if os(macOS)
         Settings {
-            AISettingsView(engine: aiEngine)
+            AISettingsView(engine: aiEngine, semanticSearch: semanticSearch)
         }
         #endif
     }

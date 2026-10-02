@@ -48,7 +48,7 @@ final class ReferenceSearchUITests: XCTestCase {
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isSelected == true"), object: verse)
         XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 10), .completed)
         XCTAssertTrue(verse.isHittable, "The selected verse should be scrolled into view")
-        XCTAssertTrue(app.staticTexts["Ask About This Verse"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["attachedVerseChip"].waitForExistence(timeout: 10), "The selected verse attaches to the chat")
     }
 
     func testSearchSelectionErrorsAndLongChapter() {
@@ -95,7 +95,9 @@ final class ReferenceSearchUITests: XCTestCase {
         let verse = app.buttons["verse-GEN-50-1"]
         XCTAssertTrue(verse.waitForExistence(timeout: 15))
         XCTAssertFalse(verse.isSelected)
-        XCTAssertTrue(app.staticTexts["Select a verse to begin studying."].exists)
+        // With no verse selected the chat has no verse attached.
+        XCTAssertTrue(app.textFields["chatInputField"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["attachedVerseChip"].exists)
         app.terminate()
     }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 /// Settings for on-device AI: which engine is used and the model download.
 struct AISettingsView: View {
     let engine: AIEngineModel
+    let semanticSearch: SemanticSearchModel
 
     var body: some View {
         Form {
@@ -24,6 +25,34 @@ struct AISettingsView: View {
                 }
             }
 
+            if semanticSearch.isOffered {
+                Section("Semantic search") {
+                    Text("Helps “Ask the Bible” find passages by meaning and in other languages. Runs on this device.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    LabeledContent("Download size", value: semanticSearch.downloadSizeText)
+                    SemanticSearchControls(model: semanticSearch)
+                }
+            }
+
+            if !engine.installedTiers.isEmpty || semanticSearch.isInstalled {
+                Section("Downloaded models") {
+                    ForEach(engine.installedTiers, id: \.self) { tier in
+                        DownloadedModelRow(
+                            name: tier.displayName,
+                            size: ByteCountFormatter.string(fromByteCount: tier.manifest.totalBytes, countStyle: .file)
+                        ) {
+                            await engine.deleteModel(tier)
+                        }
+                    }
+                    if semanticSearch.isInstalled {
+                        DownloadedModelRow(name: "Search model", size: semanticSearch.downloadSizeText) {
+                            await semanticSearch.deleteModel()
+                        }
+                    }
+                }
+            }
+
             Section {
                 Text("Answers are generated on this device and may be wrong. Check important points against the text.")
                     .font(.caption)
@@ -32,10 +61,11 @@ struct AISettingsView: View {
         }
         .formStyle(.grouped)
         #if os(macOS)
-        .frame(width: 480, height: 380)
+        .frame(width: 480, height: 520)
         #endif
         .task {
             await engine.refresh()
+            await semanticSearch.refresh()
         }
     }
 
@@ -53,6 +83,31 @@ struct AISettingsView: View {
             "Requires a newer system version (26 or later)."
         case .unavailable(.other):
             "Not available right now."
+        }
+    }
+}
+
+/// A downloaded model with its size and a confirmed Delete button.
+private struct DownloadedModelRow: View {
+    let name: String
+    let size: String
+    let delete: () async -> Void
+    @State private var isConfirming = false
+
+    var body: some View {
+        LabeledContent {
+            Button("Delete", role: .destructive) { isConfirming = true }
+                .accessibilityIdentifier("deleteDownloadedModel-\(name)")
+        } label: {
+            Text(name)
+            Text(size)
+        }
+        .confirmationDialog("Delete \(name)?", isPresented: $isConfirming) {
+            Button("Delete \(name)", role: .destructive) {
+                Task { await delete() }
+            }
+        } message: {
+            Text("This frees \(size). You can download it again later.")
         }
     }
 }

@@ -15,6 +15,7 @@ final class AppModel {
         let verses: any BibleRepository
         let catalog: any BibleCatalogRepository
         let text: any BibleTextSearchRepository
+        let passages: any BiblePassageSearchRepository
     }
 
     enum State {
@@ -24,7 +25,8 @@ final class AppModel {
             BibleReaderModel,
             BibleCatalogModel,
             BibleReferenceSearchModel,
-            BibleTextSearchModel
+            BibleTextSearchModel,
+            BibleChatModel
         )
         case failed(String)
     }
@@ -35,11 +37,21 @@ final class AppModel {
     private let loadRepositories:
         @MainActor @Sendable () async throws -> Repositories
 
+    @ObservationIgnored
+    private let chatEngine: BibleChatModel.Engine
+
+    @ObservationIgnored
+    private let chatStore: any ChatStore
+
     init(
         loadRepositories: @escaping @MainActor @Sendable
-        () async throws -> Repositories
+        () async throws -> Repositories,
+        chatEngine: BibleChatModel.Engine = .unavailable,
+        chatStore: any ChatStore = InMemoryChatStore()
     ) {
         self.loadRepositories = loadRepositories
+        self.chatEngine = chatEngine
+        self.chatStore = chatStore
     }
 
     func start() async {
@@ -75,11 +87,21 @@ final class AppModel {
                 repository: repositories.text
             )
 
+            let catalog = repositories.catalog
+            let chatModel = BibleChatModel(
+                passages: repositories.passages,
+                verses: repositories.verses,
+                books: { try await catalog.books() },
+                engine: chatEngine,
+                store: chatStore
+            )
+
             state = .ready(
                 readerModel,
                 catalogModel,
                 searchModel,
-                textSearchModel
+                textSearchModel,
+                chatModel
             )
         } catch is CancellationError {
             state = .idle

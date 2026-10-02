@@ -11,8 +11,8 @@ import BibleAI
 
 struct ContentView: View {
     let appModel: AppModel
-    let studyAssistantModel: StudyAssistantModel
     let aiEngine: AIEngineModel
+    let semanticSearch: SemanticSearchModel
     let readingPositionStore: ReadingPositionStore
 
     @Environment(\.scenePhase) private var scenePhase
@@ -43,11 +43,12 @@ struct ContentView: View {
             case .idle, .loading:
                 ProgressView("Loading Bible…")
 
-            case let .ready(readerModel, catalogModel, searchModel, textSearchModel):
+            case let .ready(readerModel, catalogModel, searchModel, textSearchModel, chatModel):
                 BibleReaderView(
                     model: readerModel,
-                    studyAssistantModel: studyAssistantModel,
                     aiEngine: aiEngine,
+                    chatModel: chatModel,
+                    semanticSearch: semanticSearch,
                     catalogModel: catalogModel,
                     searchModel: searchModel,
                     textSearchModel: textSearchModel,
@@ -80,15 +81,20 @@ struct ContentView: View {
         }
         .task {
             await aiEngine.refresh()
+            await semanticSearch.refresh()
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
                 // Apple Intelligence may have been turned on, or a model
                 // finished preparing, while the app was in the background.
-                Task { await aiEngine.refresh() }
+                Task {
+                    await aiEngine.refresh()
+                    await semanticSearch.refresh()
+                }
             case .background:
                 aiEngine.unloadModel()
+                semanticSearch.unload()
             default:
                 break
             }
@@ -105,7 +111,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
-                AISettingsView(engine: aiEngine)
+                AISettingsView(engine: aiEngine, semanticSearch: semanticSearch)
                     .navigationTitle("AI Settings")
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
