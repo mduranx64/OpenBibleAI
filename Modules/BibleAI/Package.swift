@@ -7,7 +7,8 @@ let package = Package(
     name: "BibleAI",
     platforms: [
         .macOS(.v14),
-        .iOS(.v16)
+        .iOS(.v17),
+        .visionOS(.v1),
     ],
     products: [
         .library(
@@ -17,6 +18,8 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../BibleDomain"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm", exact: "3.32.3"),
+        .package(url: "https://github.com/huggingface/swift-transformers", from: "1.3.0"),
     ],
     targets: [
         .target(
@@ -26,6 +29,9 @@ let package = Package(
                     name: "BibleDomain",
                     package: "BibleDomain"
                 ),
+                .product(name: "MLXLLM", package: "mlx-swift-lm"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "Tokenizers", package: "swift-transformers"),
             ],
             swiftSettings: [
                 .enableUpcomingFeature(
