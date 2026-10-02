@@ -32,8 +32,8 @@ struct LiveMLXModelTests {
         let downloadTime = clock.now - downloadStart
         #expect(await store.isInstalled())
 
-        let versesURL = try #require(Bundle.main.url(forResource: "kjv-verses", withExtension: "json"))
-        let booksURL = try #require(Bundle.main.url(forResource: "kjv-books", withExtension: "json"))
+        let versesURL = RepositoryBibles.kjvVerses
+        let booksURL = RepositoryBibles.kjvBooks
         let catalog = try await JSONBibleBookCatalog.load(from: booksURL)
         let repository = try await JSONBibleRepository.load(from: versesURL, books: catalog.books)
         let chapter = try await repository.verses(in: "JOH", chapter: 3)

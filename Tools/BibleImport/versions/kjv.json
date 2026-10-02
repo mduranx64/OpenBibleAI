@@ -1,0 +1,14 @@
+{
+  "version": {
+    "id": "kjv",
+    "name": "King James Version",
+    "abbreviation": "KJV",
+    "language": "en",
+    "copyright": "Public domain"
+  },
+  "source": "eng-kjv2006_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/eng-kjv2006_vpl.zip",
+  "book_names": "en",
+  "expected_books": 66,
+  "expected_verses": 31102
+}

@@ -4,8 +4,9 @@ import Foundation
 import Observation
 
 /// The optional "Improve search" download: a multilingual embedding model
-/// that, with the bundled verse vectors, adds meaning-based retrieval to
-/// "Ask the Bible". Keyword retrieval works without it.
+/// that, with the reading version's verse vectors (downloaded with the
+/// version), adds meaning-based retrieval to the Bible chat. Keyword
+/// retrieval works without it.
 @MainActor
 @Observable
 final class SemanticSearchModel {
@@ -17,7 +18,7 @@ final class SemanticSearchModel {
     let isSupported: Bool
 
     @ObservationIgnored private let store: (any LocalModelStoring)?
-    @ObservationIgnored private let indexURL: URL?
+    @ObservationIgnored private var indexURL: URL?
     @ObservationIgnored private let makeEmbedder: @MainActor (URL) -> (any QueryEmbedding)?
     @ObservationIgnored private var search: SemanticVerseSearch?
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
@@ -41,14 +42,25 @@ final class SemanticSearchModel {
         return SemanticSearchModel(
             store: LocalModelStore(manifest: .qwen3Embedding, directory: directory),
             isSupported: MLXModelTier.current != nil,
-            indexURL: Bundle.main.url(forResource: "kjv-verse-embeddings", withExtension: "bin"),
+            indexURL: nil,
             makeEmbedder: { MLXTextEmbedder(directory: $0) }
         )
     }
 
-    /// The download is offered only where it can run and the index is bundled.
+    /// The download is offered only where it can run.
     var isOffered: Bool {
-        isSupported && store != nil && indexURL != nil
+        isSupported && store != nil
+    }
+
+    /// Searches the vectors of another version (the reading version's
+    /// `embeddings.bin`, or nil if it has none). The previous vectors are freed.
+    func useIndex(_ url: URL?) {
+        guard url != indexURL else { return }
+        indexURL = url
+        if let search {
+            self.search = nil
+            Task { await search.unload() }
+        }
     }
 
     var downloadSizeText: String {

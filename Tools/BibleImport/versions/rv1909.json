@@ -1,0 +1,15 @@
+{
+  "version": {
+    "id": "rv1909",
+    "name": "Reina-Valera 1909",
+    "abbreviation": "RV1909",
+    "language": "es",
+    "copyright": "Dominio público"
+  },
+  "source": "spaRV1909/spaRV1909_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/spaRV1909_vpl.zip",
+  "book_names": "es",
+  "expected_books": 66,
+  "expected_verses": 31084,
+  "skip_empty_verses": true
+}

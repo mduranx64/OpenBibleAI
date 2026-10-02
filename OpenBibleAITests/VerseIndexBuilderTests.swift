@@ -7,12 +7,15 @@ import Testing
 
 @testable import OpenBibleAI
 
-/// Builds and evaluates the bundled verse-embedding index. Both are opt-in:
+/// Builds and evaluates a version package's verse-embedding index
+/// (`Bibles/<id>/embeddings.bin`). All are opt-in:
 ///
+/// - `TEST_RUNNER_OPENBIBLE_VERSION=<id>` picks the package in `Bibles/`
+///   (default `kjv`; build others with `Tools/BibleImport/convert_vpl.py`).
 /// - `TEST_RUNNER_OPENBIBLE_BUILD_VERSE_INDEX=1` downloads/verifies the pinned
-///   embedding model, embeds every KJV verse with `MLXTextEmbedder` (the same
+///   embedding model, embeds every verse with `MLXTextEmbedder` (the same
 ///   code the app uses for questions) at 512 dimensions, and writes
-///   `Application Support/OpenBibleAI/kjv-verse-embeddings-512.bin` in the app
+///   `Application Support/OpenBibleAI/<id>-verse-embeddings-512.bin` in the app
 ///   container (the sandboxed test host cannot write into the repository).
 /// - `TEST_RUNNER_OPENBIBLE_EVAL_RETRIEVAL=1` compares keyword, semantic and
 ///   hybrid retrieval on golden questions (English and Spanish) at 256 and 512
@@ -22,23 +25,25 @@ struct VerseIndexBuilderTests {
     nonisolated private static let build = ProcessInfo.processInfo.environment["OPENBIBLE_BUILD_VERSE_INDEX"] == "1"
     nonisolated private static let evaluate = ProcessInfo.processInfo.environment["OPENBIBLE_EVAL_RETRIEVAL"] == "1"
     nonisolated private static let export = ProcessInfo.processInfo.environment["OPENBIBLE_EXPORT_VERSE_INDEX"] == "1"
+    nonisolated static let versionID = ProcessInfo.processInfo.environment["OPENBIBLE_VERSION"] ?? "kjv"
+    nonisolated static var package: URL {
+        RepositoryBibles.kjv.deletingLastPathComponent().appendingPathComponent(versionID, isDirectory: true)
+    }
 
     static var supportDirectory: URL {
         URL.applicationSupportDirectory.appendingPathComponent("OpenBibleAI", isDirectory: true)
     }
     static var builtIndexURL: URL {
-        supportDirectory.appendingPathComponent("kjv-verse-embeddings-512.bin")
+        supportDirectory.appendingPathComponent("\(versionID)-verse-embeddings-512.bin")
     }
     static var embedderDirectory: URL {
         supportDirectory.appendingPathComponent("Models/embedding", isDirectory: true)
     }
 
     private func loadBible() async throws -> (JSONBibleRepository, [BibleBook], Data) {
-        let booksURL = try #require(Bundle.main.url(forResource: "kjv-books", withExtension: "json"))
-        let versesURL = try #require(Bundle.main.url(forResource: "kjv-verses", withExtension: "json"))
-        let catalog = try await JSONBibleBookCatalog.load(from: booksURL)
-        let repository = try await JSONBibleRepository.load(from: versesURL, books: catalog.books)
-        return (repository, catalog.books, try Data(contentsOf: versesURL))
+        let package = try await BibleVersionPackage.load(from: Self.package)
+        let versesURL = Self.package.appendingPathComponent(BibleVersionPackage.FileName.verses)
+        return (package.repository, package.books, try Data(contentsOf: versesURL))
     }
 
     private func embedder() async throws -> MLXTextEmbedder {
@@ -56,7 +61,8 @@ struct VerseIndexBuilderTests {
                 verses += try await repository.verses(in: book.bookID, chapter: chapter)
             }
         }
-        #expect(verses.count == 31_102)
+        #expect(verses.count == (Self.versionID == "kjv" ? 31_102 : verses.count))
+        print("Embedding \(verses.count) verses of \(Self.versionID)")
 
         let embedder = try await embedder()
         let clock = ContinuousClock()
@@ -85,14 +91,14 @@ struct VerseIndexBuilderTests {
         await embedder.unload()
     }
 
-    /// `TEST_RUNNER_OPENBIBLE_EXPORT_VERSE_INDEX=1`: writes the bundled
-    /// resource (truncated to the app's dimensions) next to the 512-d build;
-    /// copy it to `Resources/kjv-verse-embeddings.bin`.
+    /// `TEST_RUNNER_OPENBIBLE_EXPORT_VERSE_INDEX=1`: writes the package index
+    /// (truncated to the app's dimensions) next to the 512-d build; copy it
+    /// to `Bibles/<id>/embeddings.bin`.
     @Test(.enabled(if: VerseIndexBuilderTests.export))
     func exportBundledIndex() throws {
         let full = try VerseVectorIndex(data: Data(contentsOf: Self.builtIndexURL))
         let bundled = try full.truncated(to: MLXTextEmbedder.defaultDimensions)
-        let destination = Self.supportDirectory.appendingPathComponent("kjv-verse-embeddings.bin")
+        let destination = Self.supportDirectory.appendingPathComponent("\(Self.versionID)-embeddings.bin")
         let data = try VerseVectorIndex.encode(
             header: bundled.header,
             entries: (0..<bundled.header.count).map { bundled.entry(at: $0) }
@@ -106,7 +112,7 @@ struct VerseIndexBuilderTests {
     @Test(.enabled(if: VerseIndexBuilderTests.evaluate))
     func bundledIndexMatchesRuntimeEmbedder() async throws {
         let (repository, _, _) = try await loadBible()
-        let url = try #require(Bundle.main.url(forResource: "kjv-verse-embeddings", withExtension: "bin"))
+        let url = Self.package.appendingPathComponent(BibleVersionPackage.FileName.embeddings)
         let bundled = try VerseVectorIndex(data: Data(contentsOf: url))
         let embedder = MLXTextEmbedder(directory: Self.embedderDirectory, dimensions: bundled.header.dimensions)
 

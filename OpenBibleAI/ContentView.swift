@@ -14,6 +14,7 @@ struct ContentView: View {
     let aiEngine: AIEngineModel
     let semanticSearch: SemanticSearchModel
     let readingPositionStore: ReadingPositionStore
+    let compare: BibleCompareModel
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -43,16 +44,28 @@ struct ContentView: View {
             case .idle, .loading:
                 ProgressView("Loading Bible…")
 
-            case let .ready(catalogModel, searchModel, textSearchModel, chatModel):
+            case .needsVersion:
+                BibleOnboardingView(library: appModel.library) {
+                    Task { await appModel.start() }
+                }
+
+            case let .ready(session):
                 BibleReaderView(
                     aiEngine: aiEngine,
-                    chatModel: chatModel,
+                    chatModel: session.chat,
                     semanticSearch: semanticSearch,
-                    catalogModel: catalogModel,
-                    searchModel: searchModel,
-                    textSearchModel: textSearchModel,
-                    readingPositionStore: readingPositionStore
+                    catalogModel: session.catalog,
+                    searchModel: session.referenceSearch,
+                    textSearchModel: session.textSearch,
+                    readingPositionStore: readingPositionStore,
+                    library: appModel.library,
+                    compare: compare,
+                    version: session.version,
+                    switchVersion: { id in Task { await appModel.switchVersion(to: id) } }
                 )
+                // A new version gets fresh reader state; the saved book and
+                // chapter are restored from the position store.
+                .id(session.version.id)
 
             case let .failed(message):
                 VStack(spacing: 12) {
@@ -76,7 +89,13 @@ struct ContentView: View {
         }
         .frame(minWidth: 900, minHeight: 480)
         .task {
+            #if DEBUG
+            await UITestBibles.preinstall(into: appModel.library)
+            #endif
             await appModel.start()
+        }
+        .task(id: appModel.session?.version.id) {
+            semanticSearch.useIndex(appModel.session?.embeddingsURL)
         }
         .task {
             await aiEngine.refresh()

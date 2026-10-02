@@ -15,12 +15,12 @@ struct BundledVerseIndexTests {
     private static let resources = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent().deletingLastPathComponent()
-        .deletingLastPathComponent().appendingPathComponent("Resources")
+        .deletingLastPathComponent().appendingPathComponent("Bibles/kjv")
 
     @Test
     func bundledIndexMatchesTheBundledBibleAndPinnedModel() async throws {
-        let versesData = try Data(contentsOf: Self.resources.appendingPathComponent("kjv-verses.json"))
-        let index = try VerseVectorIndex(data: Data(contentsOf: Self.resources.appendingPathComponent("kjv-verse-embeddings.bin")))
+        let versesData = try Data(contentsOf: Self.resources.appendingPathComponent("verses.json"))
+        let index = try VerseVectorIndex(data: Data(contentsOf: Self.resources.appendingPathComponent("embeddings.bin")))
 
         let sha = SHA256.hash(data: versesData).map { String(format: "%02x", $0) }.joined()
         #expect(index.header.source == sha, "Index was built from different verse data; rebuild it")
@@ -29,7 +29,7 @@ struct BundledVerseIndexTests {
         #expect(index.header.dimensions == 256)
         #expect(index.header.count == 31_102)
 
-        let books = try JSONBibleBookCatalog(data: Data(contentsOf: Self.resources.appendingPathComponent("kjv-books.json"))).books
+        let books = try JSONBibleBookCatalog(data: Data(contentsOf: Self.resources.appendingPathComponent("books.json"))).books
         let repository = try JSONBibleRepository(data: versesData, books: books)
         let indexed = Set((0..<index.header.count).map { index.entry(at: $0).0 })
         #expect(indexed.count == 31_102)

@@ -7,100 +7,121 @@
 
 import Observation
 import BibleDomain
+import Foundation
 
+/// Loads the active Bible version from the library and composes the feature
+/// models for it. With no version installed, the app shows onboarding.
 @MainActor
 @Observable
 final class AppModel {
-    struct Repositories: Sendable {
+    nonisolated struct Repositories: Sendable {
         let verses: any BibleRepository
         let catalog: any BibleCatalogRepository
         let text: any BibleTextSearchRepository
         let passages: any BiblePassageSearchRepository
     }
 
+    /// The feature models for one loaded version.
+    struct Session {
+        let version: BibleVersion
+        let embeddingsURL: URL?
+        let catalog: BibleCatalogModel
+        let referenceSearch: BibleReferenceSearchModel
+        let textSearch: BibleTextSearchModel
+        let chat: BibleChatModel
+    }
+
     enum State {
         case idle
         case loading
-        case ready(
-            BibleCatalogModel,
-            BibleReferenceSearchModel,
-            BibleTextSearchModel,
-            BibleChatModel
-        )
+        /// No Bible is installed: choose and download one.
+        case needsVersion
+        case ready(Session)
         case failed(String)
     }
 
     private(set) var state: State = .idle
+    let library: BibleLibraryModel
 
-    @ObservationIgnored
-    private let loadRepositories:
-        @MainActor @Sendable () async throws -> Repositories
-
-    @ObservationIgnored
-    private let chatEngine: BibleChatModel.Engine
-
-    @ObservationIgnored
-    private let chatStore: any ChatStore
+    @ObservationIgnored private let chatEngine: BibleChatModel.Engine
+    @ObservationIgnored private let chatStore: any ChatStore
+    @ObservationIgnored private var generation = 0
 
     init(
-        loadRepositories: @escaping @MainActor @Sendable
-        () async throws -> Repositories,
+        library: BibleLibraryModel,
         chatEngine: BibleChatModel.Engine = .unavailable,
         chatStore: any ChatStore = InMemoryChatStore()
     ) {
-        self.loadRepositories = loadRepositories
+        self.library = library
         self.chatEngine = chatEngine
         self.chatStore = chatStore
     }
 
+    var session: Session? {
+        if case let .ready(session) = state { return session }
+        return nil
+    }
+
+    /// Opens the active version, or onboarding when none is installed.
+    /// Repeated calls while loading or ready do nothing.
     func start() async {
         switch state {
         case .loading, .ready:
             return
-
-        case .idle, .failed:
+        case .idle, .needsVersion, .failed:
             break
         }
 
         state = .loading
+        await library.refresh()
+        guard let id = library.activeVersionID else {
+            state = .needsVersion
+            return
+        }
+        await open(id)
+    }
 
+    /// Makes an installed version the reading version and reloads the models
+    /// for it (the reader restores its saved book and chapter).
+    func switchVersion(to id: String) async {
+        guard id != session?.version.id, library.installedIDs.contains(id) else { return }
+        library.activate(id)
+        await open(id)
+    }
+
+    private func open(_ id: String) async {
+        generation += 1
+        let generation = generation
         do {
-            let repositories = try await loadRepositories()
-
+            let bible = try await library.bible(id)
             try Task.checkCancellation()
+            guard generation == self.generation else { return }
+            state = .ready(makeSession(for: bible))
+        } catch is CancellationError {
+            guard generation == self.generation else { return }
+            state = .idle
+        } catch {
+            guard generation == self.generation else { return }
+            state = .failed(String(describing: error))
+        }
+    }
 
-            let catalogModel = BibleCatalogModel(
-                repository: repositories.catalog
-            )
-
-            let searchModel = BibleReferenceSearchModel(
-                catalog: repositories.catalog,
-                verses: repositories.verses
-            )
-
-            let textSearchModel = BibleTextSearchModel(
-                repository: repositories.text
-            )
-
-            let catalog = repositories.catalog
-            let chatModel = BibleChatModel(
+    private func makeSession(for bible: LoadedBible) -> Session {
+        let repositories = bible.repositories
+        let catalog = repositories.catalog
+        return Session(
+            version: bible.version,
+            embeddingsURL: bible.embeddingsURL,
+            catalog: BibleCatalogModel(repository: repositories.catalog),
+            referenceSearch: BibleReferenceSearchModel(catalog: repositories.catalog, verses: repositories.verses),
+            textSearch: BibleTextSearchModel(repository: repositories.text),
+            chat: BibleChatModel(
                 passages: repositories.passages,
                 verses: repositories.verses,
                 books: { try await catalog.books() },
                 engine: chatEngine,
                 store: chatStore
             )
-
-            state = .ready(
-                catalogModel,
-                searchModel,
-                textSearchModel,
-                chatModel
-            )
-        } catch is CancellationError {
-            state = .idle
-        } catch {
-            state = .failed(String(describing: error))
-        }
+        )
     }
 }

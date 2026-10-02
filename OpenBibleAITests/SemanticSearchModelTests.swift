@@ -59,6 +59,20 @@ struct SemanticSearchModelTests {
         await model.deleteModel()
         #expect(!model.isInstalled)
     }
+
+    @Test
+    func searchUsesTheReadingVersionsIndexOnlyWhenItHasOne() async {
+        let model = SemanticSearchModel(store: FakeSearchStore(installed: true), isSupported: true, indexURL: nil, makeEmbedder: { _ in NullEmbedder() })
+        await model.refresh()
+        #expect(model.isOffered, "The model download is offered before a version is loaded")
+        #expect(model.searcher() == nil, "No index: no semantic search")
+
+        model.useIndex(URL(fileURLWithPath: "/tmp/kjv/embeddings.bin"))
+        #expect(model.searcher() != nil)
+
+        model.useIndex(nil)
+        #expect(model.searcher() == nil)
+    }
 }
 
 private final class FakeSearchStore: LocalModelStoring, @unchecked Sendable {

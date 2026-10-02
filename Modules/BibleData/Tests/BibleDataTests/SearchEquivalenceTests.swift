@@ -26,13 +26,13 @@ struct SearchEquivalenceTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("Resources")
+            .appendingPathComponent("Bibles/kjv")
 
         let catalog = try await JSONBibleBookCatalog.load(
-            from: resources.appendingPathComponent("kjv-books.json")
+            from: resources.appendingPathComponent("books.json")
         )
         let repository = try await JSONBibleRepository.load(
-            from: resources.appendingPathComponent("kjv-verses.json"),
+            from: resources.appendingPathComponent("verses.json"),
             books: catalog.books
         )
 
@@ -46,7 +46,7 @@ struct SearchEquivalenceTests {
         }
         let rows = try JSONDecoder().decode(
             [Row].self,
-            from: Data(contentsOf: resources.appendingPathComponent("kjv-verses.json"))
+            from: Data(contentsOf: resources.appendingPathComponent("verses.json"))
         )
         let order = Dictionary(
             uniqueKeysWithValues: catalog.books.map { ($0.bookID, $0.canonicalOrder) }

@@ -6,6 +6,7 @@
 //
 
 import BibleAI
+import Foundation
 import Testing
 import BibleDomain
 @testable import OpenBibleAI
@@ -25,7 +26,7 @@ struct AppModelTests {
             AppModel.Repositories(verses: verses, catalog: catalog, text: stored, passages: stored)
         })
         await model.start()
-        guard case let .ready(_, search, _, _) = model.state else {
+        guard let search = model.session?.referenceSearch else {
             Issue.record("Expected search to be composed with the loaded repositories")
             return
         }
@@ -50,7 +51,7 @@ struct AppModelTests {
         )
 
         await appModel.start()
-        guard case let .ready(_, _, _, chat) = appModel.state else {
+        guard let chat = appModel.session?.chat else {
             Issue.record("Expected ready state")
             return
         }
@@ -131,7 +132,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(catalogModel, _, _, _) = appModel.state else {
+        guard let catalogModel = appModel.session?.catalog else {
             Issue.record("Expected ready state")
             return
         }
@@ -162,7 +163,7 @@ struct AppModelTests {
 
         await appModel.start()
 
-        guard case let .ready(_, _, textSearch, _) = appModel.state else {
+        guard let textSearch = appModel.session?.textSearch else {
             Issue.record("Expected ready state")
             return
         }
@@ -174,6 +175,98 @@ struct AppModelTests {
             return
         }
         #expect(result.verses == [verse])
+    }
+}
+
+@MainActor
+struct AppModelLibraryTests {
+    private static func entry(_ id: String) throws -> BibleCatalogEntry {
+        BibleCatalogEntry(
+            version: try BibleVersion(id: id, name: id, abbreviation: id, languageCode: "en", copyright: ""),
+            manifest: ModelManifest(repository: "owner/repo", revision: id, files: [], host: .gitHubRelease)
+        )
+    }
+
+    private func library(installed: Set<String>) throws -> BibleLibraryModel {
+        let catalog = [try Self.entry("kjv"), try Self.entry("web")]
+        var stores: [String: any LocalModelStoring] = [:]
+        for entry in catalog {
+            stores[entry.id] = FakeBibleStore(id: entry.id, installed: installed.contains(entry.id))
+        }
+        return BibleLibraryModel(catalog: catalog, stores: stores, defaults: InMemoryDefaults()) { entry, _ in
+            LoadedBible(
+                version: entry.version,
+                repositories: AppModel.Repositories(repository: InMemoryBibleRepository(verses: [])),
+                embeddingsURL: URL(fileURLWithPath: "/tmp/\(entry.id)/embeddings.bin")
+            )
+        }
+    }
+
+    @Test
+    func withNoInstalledBibleTheAppNeedsAVersionThenOpensTheDownloadedOne() async throws {
+        let library = try library(installed: [])
+        let appModel = AppModel(library: library)
+
+        await appModel.start()
+        guard case .needsVersion = appModel.state else {
+            Issue.record("Expected onboarding, got \(appModel.state)")
+            return
+        }
+
+        await library.install("web").value
+        await appModel.start()
+
+        #expect(appModel.session?.version.id == "web")
+        #expect(appModel.session?.embeddingsURL?.path == "/tmp/web/embeddings.bin")
+    }
+
+    @Test
+    func switchingVersionReloadsTheModelsAndRemembersTheChoice() async throws {
+        let library = try library(installed: ["kjv", "web"])
+        let appModel = AppModel(library: library)
+        await appModel.start()
+        let first = try #require(appModel.session)
+        #expect(first.version.id == "kjv")
+
+        await appModel.switchVersion(to: "web")
+
+        let second = try #require(appModel.session)
+        #expect(second.version.id == "web")
+        #expect(second.catalog !== first.catalog)
+        #expect(library.activeVersionID == "web")
+    }
+
+    @Test
+    func switchingToAMissingVersionKeepsTheCurrentOne() async throws {
+        let library = try library(installed: ["kjv"])
+        let appModel = AppModel(library: library)
+        await appModel.start()
+
+        await appModel.switchVersion(to: "web")
+
+        #expect(appModel.session?.version.id == "kjv")
+    }
+}
+
+@MainActor
+extension AppModel {
+    /// One installed version whose repositories come from `loadRepositories`.
+    convenience init(
+        loadRepositories: @escaping @Sendable () async throws -> Repositories,
+        chatEngine: BibleChatModel.Engine? = nil
+    ) {
+        let entry = BibleCatalogEntry(
+            version: try! BibleVersion(id: "kjv", name: "King James Version", abbreviation: "KJV", languageCode: "en", copyright: ""),
+            manifest: ModelManifest(repository: "owner/repo", revision: "test", files: [], host: .gitHubRelease)
+        )
+        let library = BibleLibraryModel(
+            catalog: [entry],
+            stores: ["kjv": FakeBibleStore(id: "kjv", installed: true)],
+            defaults: InMemoryDefaults()
+        ) { entry, _ in
+            LoadedBible(version: entry.version, repositories: try await loadRepositories(), embeddingsURL: nil)
+        }
+        self.init(library: library, chatEngine: chatEngine ?? .unavailable)
     }
 }
 

@@ -29,7 +29,6 @@
     { "kind": "folder", "path": "OpenBibleAI", "target-membership": [ "OpenBibleAI" ] },
     { "kind": "folder", "path": "OpenBibleAITests", "target-membership": [ "OpenBibleAITests" ] },
     { "kind": "folder", "path": "OpenBibleAIUITests", "target-membership": [ "OpenBibleAIUITests" ] },
-    { "kind": "folder", "path": "Resources", "target-membership": [ "OpenBibleAI" ] },
     {
       "kind": "group",
       "path": "Config",
@@ -178,6 +177,7 @@
         "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
         "DEAD_CODE_STRIPPING": "YES",
+        "ENABLE_INCOMING_NETWORK_CONNECTIONS": "YES",
         "GENERATE_INFOPLIST_FILE": "YES",
         "IPHONEOS_DEPLOYMENT_TARGET": "27.0",
         "MACOSX_DEPLOYMENT_TARGET": "27.0",

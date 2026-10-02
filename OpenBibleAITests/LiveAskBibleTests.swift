@@ -105,8 +105,8 @@ struct LiveAskBibleTests {
     }
 
     private func makeModel(budgetDivisor: Int = 1) async throws -> (BibleChatModel, JSONBibleRepository) {
-        let booksURL = try #require(Bundle.main.url(forResource: "kjv-books", withExtension: "json"))
-        let versesURL = try #require(Bundle.main.url(forResource: "kjv-verses", withExtension: "json"))
+        let booksURL = RepositoryBibles.kjvBooks
+        let versesURL = RepositoryBibles.kjvVerses
         let catalog = try await JSONBibleBookCatalog.load(from: booksURL)
         let repository = try await JSONBibleRepository.load(from: versesURL, books: catalog.books)
 
@@ -129,7 +129,7 @@ struct LiveAskBibleTests {
 
         var semantic: SemanticVerseSearch?
         if Self.useSemantic {
-            let indexURL = try #require(Bundle.main.url(forResource: "kjv-verse-embeddings", withExtension: "bin"))
+            let indexURL = RepositoryBibles.kjvEmbeddings
             let embedderDirectory = URL.applicationSupportDirectory
                 .appendingPathComponent("OpenBibleAI/Models/embedding", isDirectory: true)
             semantic = SemanticVerseSearch(indexURL: indexURL, embedder: MLXTextEmbedder(directory: embedderDirectory))

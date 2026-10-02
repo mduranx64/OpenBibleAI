@@ -1,0 +1,270 @@
+//
+//  BibleLibraryModel.swift
+//  OpenBibleAI
+//
+
+import BibleAI
+import BibleData
+import BibleDomain
+import Foundation
+import Observation
+
+/// A Bible version offered for download, pinned to its release files.
+nonisolated struct BibleCatalogEntry: Identifiable, Equatable, Sendable {
+    let version: BibleVersion
+    let manifest: ModelManifest
+
+    var id: String { version.id }
+    var downloadSize: Int64 { manifest.totalBytes }
+}
+
+/// An installed version, loaded for reading, search and the chat.
+nonisolated struct LoadedBible: Sendable {
+    let version: BibleVersion
+    let repositories: AppModel.Repositories
+    /// The version's verse-embedding index for semantic search, if any.
+    let embeddingsURL: URL?
+}
+
+/// The Bible versions the user can install: download (verified, resumable),
+/// delete, the active reading version, and loading installed versions.
+/// UI-facing, main-actor state.
+@MainActor
+@Observable
+final class BibleLibraryModel {
+    enum DownloadState: Equatable {
+        case downloading(Double)
+        case failed(String)
+    }
+
+    enum LibraryError: Error, Equatable {
+        case notInstalled(String)
+    }
+
+    let catalog: [BibleCatalogEntry]
+    private(set) var installedIDs: Set<String> = []
+    /// Downloads in progress or failed, by version ID.
+    private(set) var downloads: [String: DownloadState] = [:]
+    private(set) var activeVersionID: String?
+    private(set) var hasRefreshed = false
+
+    @ObservationIgnored private let stores: [String: any LocalModelStoring]
+    @ObservationIgnored private let defaults: any ReadingPositionStorage
+    @ObservationIgnored private let load: @Sendable (BibleCatalogEntry, URL) async throws -> LoadedBible
+    @ObservationIgnored private var tasks: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var generations: [String: Int] = [:]
+    @ObservationIgnored private var loaded: [String: Task<LoadedBible, any Error>] = [:]
+
+    private static let activeVersionKey = "bible.activeVersion"
+
+    init(
+        catalog: [BibleCatalogEntry],
+        stores: [String: any LocalModelStoring],
+        defaults: any ReadingPositionStorage,
+        load: @escaping @Sendable (BibleCatalogEntry, URL) async throws -> LoadedBible = BibleLibraryModel.loadPackage
+    ) {
+        self.catalog = catalog
+        self.stores = stores
+        self.defaults = defaults
+        self.load = load
+    }
+
+    /// The app's library: the pinned catalog, stored under Application Support.
+    static func live(defaults: any ReadingPositionStorage = UserDefaults.standard) -> BibleLibraryModel {
+        let directory = URL.applicationSupportDirectory
+            .appendingPathComponent("OpenBibleAI", isDirectory: true)
+            .appendingPathComponent("Bibles", isDirectory: true)
+        let catalog = BibleCatalogEntry.published
+        var stores: [String: any LocalModelStoring] = [:]
+        for entry in catalog {
+            stores[entry.id] = LocalModelStore(
+                manifest: entry.manifest,
+                directory: directory.appendingPathComponent(entry.id, isDirectory: true)
+            )
+        }
+        return BibleLibraryModel(catalog: catalog, stores: stores, defaults: defaults)
+    }
+
+    @concurrent
+    nonisolated static func loadPackage(_ entry: BibleCatalogEntry, from directory: URL) async throws -> LoadedBible {
+        let package = try await BibleVersionPackage.load(from: directory)
+        let repository = CachingBibleRepository(base: package.repository)
+        return LoadedBible(
+            version: package.version,
+            repositories: AppModel.Repositories(
+                verses: repository,
+                catalog: package.repository,
+                text: package.repository,
+                passages: package.repository
+            ),
+            embeddingsURL: package.embeddingsURL
+        )
+    }
+
+    // MARK: - State
+
+    var installedVersions: [BibleVersion] {
+        catalog.filter { installedIDs.contains($0.id) }.map(\.version)
+    }
+
+    var activeVersion: BibleVersion? {
+        catalog.first { $0.id == activeVersionID }?.version
+    }
+
+    /// No version is installed yet: the user must pick one to download.
+    var needsOnboarding: Bool {
+        hasRefreshed && installedIDs.isEmpty
+    }
+
+    func entry(_ id: String) -> BibleCatalogEntry? {
+        catalog.first { $0.id == id }
+    }
+
+    func refresh() async {
+        var installed: Set<String> = []
+        for entry in catalog where await stores[entry.id]?.isInstalled() == true {
+            installed.insert(entry.id)
+        }
+        installedIDs = installed
+
+        let saved = defaults.data(forKey: Self.activeVersionKey).flatMap { String(data: $0, encoding: .utf8) }
+        if let saved, installed.contains(saved) {
+            activeVersionID = saved
+        } else {
+            activeVersionID = catalog.first { installed.contains($0.id) }?.id
+        }
+        hasRefreshed = true
+    }
+
+    /// Makes an installed version the reading version and remembers it.
+    func activate(_ id: String) {
+        guard installedIDs.contains(id) else { return }
+        activeVersionID = id
+        defaults.set(Data(id.utf8), forKey: Self.activeVersionKey)
+    }
+
+    // MARK: - Download
+
+    @discardableResult
+    func install(_ id: String) -> Task<Void, Never> {
+        if let task = tasks[id] { return task }
+        guard let store = stores[id] else { return Task {} }
+
+        let generation = (generations[id] ?? 0) + 1
+        generations[id] = generation
+        downloads[id] = .downloading(0)
+
+        // Called off the main actor by the store; hops back to report.
+        let report: @Sendable (Double) -> Void = { [weak self] fraction in
+            Task { @MainActor in
+                self?.reportProgress(fraction, id: id, generation: generation)
+            }
+        }
+
+        let task = Task { [weak self] in
+            var outcome: DownloadState?
+            do {
+                try await store.download(progress: report)
+            } catch is CancellationError {
+                outcome = nil
+            } catch {
+                outcome = .failed(Self.message(for: error))
+            }
+            guard let self, generation == self.generations[id] else { return }
+            self.downloads[id] = outcome
+            self.tasks[id] = nil
+            let hadActive = self.activeVersionID != nil
+            await self.refresh()
+            if !hadActive, self.installedIDs.contains(id) {
+                self.activate(id)
+            }
+        }
+        tasks[id] = task
+        return task
+    }
+
+    func cancel(_ id: String) {
+        generations[id, default: 0] += 1
+        tasks[id]?.cancel()
+        tasks[id] = nil
+        downloads[id] = nil
+    }
+
+    /// Deletes an installed version. The active version and the last one
+    /// can't be deleted (the reader always needs a Bible); returns false then.
+    func delete(_ id: String) async -> Bool {
+        guard id != activeVersionID, installedIDs.subtracting([id]).count >= 1 else { return false }
+        cancel(id)
+        loaded[id]?.cancel()
+        loaded[id] = nil
+        try? await stores[id]?.delete()
+        await refresh()
+        return true
+    }
+
+    // MARK: - Loading
+
+    /// The installed version, loaded once and then reused.
+    func bible(_ id: String) async throws -> LoadedBible {
+        guard installedIDs.contains(id), let entry = entry(id), let store = stores[id] else {
+            throw LibraryError.notInstalled(id)
+        }
+        if let task = loaded[id] { return try await task.value }
+
+        let load = self.load
+        let directory = store.directory
+        let task = Task { try await load(entry, directory) }
+        loaded[id] = task
+        do {
+            return try await task.value
+        } catch {
+            if loaded[id] == task { loaded[id] = nil }
+            throw error
+        }
+    }
+
+    /// The first catalog version in one of the user's preferred languages,
+    /// otherwise the first version (the KJV).
+    func suggestedVersionID(preferredLanguages: [String] = Locale.preferredLanguages) -> String? {
+        for language in preferredLanguages {
+            let base = Locale.Language(identifier: language).languageCode?.identifier
+            if let match = catalog.first(where: {
+                Locale.Language(identifier: $0.version.languageCode).languageCode?.identifier == base
+            }) {
+                return match.id
+            }
+        }
+        return catalog.first?.id
+    }
+
+    // MARK: - Helpers
+
+    /// Late progress callbacks from an older or finished download are ignored.
+    private func reportProgress(_ fraction: Double, id: String, generation: Int) {
+        guard generation == generations[id],
+              case let .downloading(current) = downloads[id],
+              fraction >= current
+        else { return }
+        downloads[id] = .downloading(fraction)
+    }
+
+    private static func message(for error: any Error) -> String {
+        switch error {
+        case let LocalModelStore.StoreError.insufficientSpace(required, available):
+            let formatter = { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) }
+            return String(localized: "Not enough free space: this Bible needs \(formatter(required)), \(formatter(available)) available.")
+        case LocalModelStore.StoreError.checksumMismatch:
+            return String(localized: "The download was damaged. Please try again.")
+        default:
+            return String(localized: "The download failed: \(error.localizedDescription)")
+        }
+    }
+}
+
+extension AppModel.Repositories {
+    /// All four roles served by one repository (tests and fixtures).
+    nonisolated init<Repository>(repository: Repository)
+    where Repository: BibleRepository & BibleCatalogRepository & BibleTextSearchRepository & BiblePassageSearchRepository {
+        self.init(verses: repository, catalog: repository, text: repository, passages: repository)
+    }
+}

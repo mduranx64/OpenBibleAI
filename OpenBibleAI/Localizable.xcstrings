@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (%@)" : {
+      "shouldTranslate" : false
+    },
+    "%@ · %@" : {
+      "shouldTranslate" : false
+    },
     "%lld" : {
       "shouldTranslate" : false
     },
@@ -206,18 +212,18 @@
         }
       }
     },
-    "Ask anything about the Bible, in any language. Answers cite King James verses you can open. Select a verse in the reader to ask about it." : {
+    "Ask anything about the Bible, in any language. Answers cite verses from the version you’re reading, which you can open. Select a verse in the reader to ask about it." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pregunta lo que quieras sobre la Biblia, en cualquier idioma. Las respuestas citan versículos de la King James que puedes abrir. Selecciona un versículo en el lector para preguntar sobre él."
+            "value" : "Pregunta lo que quieras sobre la Biblia, en cualquier idioma. Las respuestas citan versículos de la versión que estás leyendo, que puedes abrir. Selecciona un versículo en el lector para preguntar sobre él."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pergunte o que quiser sobre a Bíblia, em qualquer idioma. As respostas citam versículos da King James que você pode abrir. Selecione um versículo no leitor para perguntar sobre ele."
+            "value" : "Pergunte o que quiser sobre a Bíblia, em qualquer idioma. As respostas citam versículos da versão que você está lendo, que você pode abrir. Selecione um versículo no leitor para perguntar sobre ele."
           }
         }
       }
@@ -282,6 +288,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Referência bíblica"
+          }
+        }
+      }
+    },
+    "Bible version" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión de la Biblia"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versão da Bíblia"
+          }
+        }
+      }
+    },
+    "Bibles" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblias"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bíblias"
           }
         }
       }
@@ -382,6 +420,22 @@
         }
       }
     },
+    "Choose a Bible" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige una Biblia"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha uma Bíblia"
+          }
+        }
+      }
+    },
     "Choose a book and chapter to begin reading." : {
       "localizations" : {
         "es" : {
@@ -394,6 +448,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Escolha um livro e um capítulo para começar a ler."
+          }
+        }
+      }
+    },
+    "Compare" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparar"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparar"
+          }
+        }
+      }
+    },
+    "Compare versions" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparar versiones"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparar versões"
           }
         }
       }
@@ -426,6 +512,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Não foi possível buscar na Bíblia. Tente novamente. %@"
+          }
+        }
+      }
+    },
+    "Couldn’t load a version to compare. %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo cargar una versión para comparar. %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Não foi possível carregar uma versão para comparar. %@"
           }
         }
       }
@@ -622,6 +724,22 @@
         }
       }
     },
+    "Download" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descargar"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixar"
+          }
+        }
+      }
+    },
     "Download Model (%@)" : {
       "localizations" : {
         "es" : {
@@ -634,6 +752,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Baixar modelo (%@)"
+          }
+        }
+      }
+    },
+    "Download a version to start reading. You can add more versions later from the version menu." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descarga una versión para empezar a leer. Puedes añadir más versiones después desde el menú de versiones."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixe uma versão para começar a ler. Você pode adicionar mais versões depois pelo menu de versões."
+          }
+        }
+      }
+    },
+    "Download another version to compare." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descarga otra versión para comparar."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Baixe outra versão para comparar."
           }
         }
       }
@@ -1044,6 +1194,22 @@
         }
       }
     },
+    "Manage Bibles…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestionar Biblias…"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gerenciar Bíblias…"
+          }
+        }
+      }
+    },
     "Model" : {
       "localizations" : {
         "es" : {
@@ -1338,6 +1504,28 @@
         }
       }
     },
+    "Not enough free space: this Bible needs %@, %@ available." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Not enough free space: this Bible needs %1$@, %2$@ available."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay suficiente espacio libre: esta Biblia necesita %@ y hay %@ disponibles."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espaço livre insuficiente: esta Bíblia precisa de %@ e há %@ disponíveis."
+          }
+        }
+      }
+    },
     "Not supported on this device." : {
       "localizations" : {
         "es" : {
@@ -1610,18 +1798,18 @@
         }
       }
     },
-    "Search the King James text above." : {
+    "Search the Bible text above." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Busca en el texto de la King James arriba."
+            "value" : "Busca en el texto de la Biblia arriba."
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Busque no texto da King James acima."
+            "value" : "Busque no texto da Bíblia acima."
           }
         }
       }
@@ -1784,6 +1972,22 @@
         }
       }
     },
+    "Start Reading" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empezar a leer"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Começar a ler"
+          }
+        }
+      }
+    },
     "Stop" : {
       "localizations" : {
         "es" : {
@@ -1800,6 +2004,22 @@
         }
       }
     },
+    "Stop Comparing" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de comparar"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parar de comparar"
+          }
+        }
+      }
+    },
     "Stopped." : {
       "localizations" : {
         "es" : {
@@ -1812,6 +2032,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Interrompido."
+          }
+        }
+      }
+    },
+    "Suggested" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sugerida"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sugerida"
           }
         }
       }
@@ -2120,6 +2356,22 @@
         }
       }
     },
+    "Version" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versão"
+          }
+        }
+      }
+    },
     "Words or \"a phrase\"" : {
       "localizations" : {
         "es" : {
@@ -2132,6 +2384,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Palavras ou \"uma frase\""
+          }
+        }
+      }
+    },
+    "You can download it again later." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes volver a descargarla más tarde."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Você pode baixá-la novamente mais tarde."
           }
         }
       }

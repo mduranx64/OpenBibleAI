@@ -7,7 +7,6 @@
 
 import SwiftUI
 import BibleAI
-import BibleData
 import BibleDomain
 
 @main
@@ -15,6 +14,7 @@ struct OpenBibleAIApp: App {
     @State private var appModel: AppModel
     @State private var aiEngine: AIEngineModel
     @State private var semanticSearch: SemanticSearchModel
+    @State private var compare: BibleCompareModel
     private let readingPositionStore: ReadingPositionStore
 
     @MainActor
@@ -22,38 +22,14 @@ struct OpenBibleAIApp: App {
         let aiEngine = AIEngineModel.live()
         let semanticSearch = SemanticSearchModel.live()
 
+        #if DEBUG
+        let library = UITestBibles.library() ?? BibleLibraryModel.live()
+        #else
+        let library = BibleLibraryModel.live()
+        #endif
+
         let appModel = AppModel(
-            loadRepositories: {
-                guard let booksURL = Bundle.main.url(
-                    forResource: "kjv-books",
-                    withExtension: "json"
-                ) else {
-                    throw LaunchError.missingResource("kjv-books.json")
-                }
-
-                guard let versesURL = Bundle.main.url(
-                    forResource: "kjv-verses",
-                    withExtension: "json"
-                ) else {
-                    throw LaunchError.missingResource("kjv-verses.json")
-                }
-
-                let catalog = try await JSONBibleBookCatalog.load(
-                    from: booksURL
-                )
-
-                let repository = try await JSONBibleRepository.load(
-                    from: versesURL,
-                    books: catalog.books
-                )
-
-                return AppModel.Repositories(
-                    verses: CachingBibleRepository(base: repository),
-                    catalog: repository,
-                    text: repository,
-                    passages: repository
-                )
-            },
+            library: library,
             chatEngine: BibleChatModel.Engine(
                 makeStreamer: { try aiEngine.makePromptStreamer() },
                 passageBudget: { aiEngine.contextCharacterLimit },
@@ -67,6 +43,7 @@ struct OpenBibleAIApp: App {
         )
         
         _appModel = State(initialValue: appModel)
+        _compare = State(initialValue: BibleCompareModel(library: library, defaults: UserDefaults.standard))
         
         _aiEngine = State(initialValue: aiEngine)
         _semanticSearch = State(initialValue: semanticSearch)
@@ -78,7 +55,8 @@ struct OpenBibleAIApp: App {
                 appModel: appModel,
                 aiEngine: aiEngine,
                 semanticSearch: semanticSearch,
-                readingPositionStore: readingPositionStore
+                readingPositionStore: readingPositionStore,
+                compare: compare
             )
         }
         // Used when there is no saved window frame (first launch).
@@ -90,8 +68,4 @@ struct OpenBibleAIApp: App {
         }
         #endif
     }
-}
-
-private enum LaunchError: Error, Sendable {
-    case missingResource(String)
 }

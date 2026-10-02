@@ -14,6 +14,10 @@ struct BibleReaderView: View {
     let semanticSearch: SemanticSearchModel
     let catalogModel: BibleCatalogModel
     let textSearchModel: BibleTextSearchModel
+    let library: BibleLibraryModel
+    let compare: BibleCompareModel
+    let version: BibleVersion
+    let switchVersion: (String) -> Void
 
     private enum SearchMode: CaseIterable, Identifiable {
         case reference
@@ -62,8 +66,16 @@ struct BibleReaderView: View {
         catalogModel: BibleCatalogModel,
         searchModel: BibleReferenceSearchModel,
         textSearchModel: BibleTextSearchModel,
-        readingPositionStore: ReadingPositionStore
+        readingPositionStore: ReadingPositionStore,
+        library: BibleLibraryModel,
+        compare: BibleCompareModel,
+        version: BibleVersion,
+        switchVersion: @escaping (String) -> Void
     ) {
+        self.library = library
+        self.compare = compare
+        self.version = version
+        self.switchVersion = switchVersion
         self.aiEngine = aiEngine
         self.chatModel = chatModel
         self.semanticSearch = semanticSearch
@@ -120,6 +132,14 @@ struct BibleReaderView: View {
                 // The floor also applies to a previously saved layout.
                 .navigationSplitViewColumnWidth(min: 360, ideal: 560)
                 .navigationTitle(locationTitle)
+                .toolbar {
+                    ToolbarItem {
+                        BibleVersionMenu(library: library, current: version, switchVersion: switchVersion)
+                    }
+                    ToolbarItem {
+                        BibleCompareMenu(model: compare, library: library, primary: version)
+                    }
+                }
         } detail: {
             BibleChatView(
                 model: chatModel,
@@ -342,6 +362,20 @@ struct BibleReaderView: View {
                         "No Verses Available",
                         systemImage: "book.closed"
                     )
+                } else if compare.isComparing(primaryVersionID: version.id) {
+                    BibleCompareView(
+                        model: compare,
+                        library: library,
+                        primary: version,
+                        title: locationTitle,
+                        bookID: bookID,
+                        chapter: chapter,
+                        verses: verses,
+                        selectedReference: selectedReference,
+                        selectionRevision: navigation.selectionRevision,
+                        selectVerse: navigation.selectVerse
+                    )
+                    .id(selectedChapter)
                 } else {
                     BibleChapterReadingView(
                         title: locationTitle,
@@ -528,7 +562,7 @@ struct BibleReaderView: View {
     private var textSearchResultsContent: some View {
         switch textSearchModel.state {
         case .idle:
-            Text("Search the King James text above.")
+            Text("Search the Bible text above.")
                 .foregroundStyle(.secondary)
         case .tooShort:
             Text("Enter at least two letters.")

@@ -124,7 +124,7 @@ struct BibleChatView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Ask anything about the Bible, in any language. Answers cite King James verses you can open. Select a verse in the reader to ask about it.")
+            Text("Ask anything about the Bible, in any language. Answers cite verses from the version you’re reading, which you can open. Select a verse in the reader to ask about it.")
                 .foregroundStyle(.secondary)
             if semanticSearch.isOffered, !semanticSearch.isInstalled {
                 Text("Find answers by meaning and in any language with an optional on-device search model.")

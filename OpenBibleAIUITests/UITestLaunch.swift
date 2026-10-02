@@ -6,13 +6,23 @@ import XCTest
 
 @MainActor
 extension XCUIApplication {
-    /// Launches OpenBibleAI for a UI test: saved window state is ignored and
+    /// Bibles available when the app starts.
+    enum UITestBibles {
+        /// These versions are installed (downloaded from the local server if needed).
+        case installed([String])
+        /// Nothing installed: the app shows onboarding.
+        case fresh
+    }
+
+    /// Launches OpenBibleAI for a UI test: saved window state is ignored, the
+    /// Bibles come from `UITestBibleServer` (the KJV installed by default) and
     /// a window must appear. Fails at once, with a clear message, when a copy
     /// of the app is running under a debugger (an Xcode Run session), which
     /// XCUITest cannot terminate (it would wait 60 s, then fail). Other
     /// running copies, e.g. left by a failed test, are terminated as usual.
     func launchForUITest(
         arguments: [String] = [],
+        bibles: UITestBibles = .installed(["kjv"]),
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
@@ -30,6 +40,19 @@ extension XCUIApplication {
             return
         }
         #endif
+
+        do {
+            launchEnvironment.merge(try UITestBibleServer.shared.environment()) { $1 }
+        } catch {
+            XCTFail("Couldn't serve the test Bibles: \(error)", file: file, line: line)
+            return
+        }
+        switch bibles {
+        case let .installed(ids):
+            launchEnvironment["OPENBIBLE_UITEST_PREINSTALL"] = ids.joined(separator: ",")
+        case .fresh:
+            launchEnvironment["OPENBIBLE_UITEST_RESET_BIBLES"] = "1"
+        }
 
         launchArguments += arguments + [
             "-ApplePersistenceIgnoreState", "YES",

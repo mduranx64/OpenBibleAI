@@ -44,9 +44,9 @@ struct GoldenRetrievalTests {
         let resources = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-            .deletingLastPathComponent().appendingPathComponent("Resources")
-        let books = try! JSONBibleBookCatalog(data: Data(contentsOf: resources.appendingPathComponent("kjv-books.json"))).books
-        return try! JSONBibleRepository(data: Data(contentsOf: resources.appendingPathComponent("kjv-verses.json")), books: books)
+            .deletingLastPathComponent().appendingPathComponent("Bibles/kjv")
+        let books = try! JSONBibleBookCatalog(data: Data(contentsOf: resources.appendingPathComponent("books.json"))).books
+        return try! JSONBibleRepository(data: Data(contentsOf: resources.appendingPathComponent("verses.json")), books: books)
     }()
 
     private func found(_ passages: [BiblePassage], _ expected: [String]) -> Bool {

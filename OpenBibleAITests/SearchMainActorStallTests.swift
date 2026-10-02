@@ -49,12 +49,8 @@ struct SearchMainActorStallTests {
 
     @Test(.enabled(if: SearchMainActorStallTests.enabled))
     func mainActorStallDuringSearch() async throws {
-        let booksURL = try #require(
-            Bundle.main.url(forResource: "kjv-books", withExtension: "json")
-        )
-        let versesURL = try #require(
-            Bundle.main.url(forResource: "kjv-verses", withExtension: "json")
-        )
+        let booksURL = RepositoryBibles.kjvBooks
+        let versesURL = RepositoryBibles.kjvVerses
         let catalog = try await JSONBibleBookCatalog.load(from: booksURL)
         let repository = try await JSONBibleRepository.load(
             from: versesURL,

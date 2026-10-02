@@ -43,18 +43,18 @@ struct SearchPerformanceTests {
             .deletingLastPathComponent() // BibleData
             .deletingLastPathComponent() // Modules
             .deletingLastPathComponent() // repository root
-            .appendingPathComponent("Resources")
+            .appendingPathComponent("Bibles/kjv")
 
         let memoryBeforeLoad = Self.footprintMB()
 
         let catalog = try await JSONBibleBookCatalog.load(
-            from: resources.appendingPathComponent("kjv-books.json")
+            from: resources.appendingPathComponent("books.json")
         )
 
         let loadClock = ContinuousClock()
         let loadStart = loadClock.now
         let repository = try await JSONBibleRepository.load(
-            from: resources.appendingPathComponent("kjv-verses.json"),
+            from: resources.appendingPathComponent("verses.json"),
             books: catalog.books
         )
         let loadMS = Self.milliseconds(loadClock.now - loadStart)

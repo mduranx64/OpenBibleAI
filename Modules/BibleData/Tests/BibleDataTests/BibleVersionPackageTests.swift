@@ -72,3 +72,21 @@ struct BibleVersionPackageTests {
         }
     }
 }
+
+struct RepositoryKJVPackageTests {
+    @Test
+    func theVersionedKJVPackageLoads() async throws {
+        let directory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Bibles/kjv")
+
+        let package = try await BibleVersionPackage.load(from: directory)
+
+        #expect(package.version.id == "kjv")
+        #expect(package.books.count == 66)
+        #expect(package.embeddingsURL != nil)
+        let verse = try await package.repository.verse(at: BibleReference(bookID: "JOH", chapter: 3, verse: 16))
+        #expect(verse.text.contains("For God so loved the world"))
+    }
+}
