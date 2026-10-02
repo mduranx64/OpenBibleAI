@@ -6,10 +6,12 @@
 //
 
 import SwiftUI
+import BibleAI
 import BibleDomain
 
 struct StudyAssistantView: View {
     let model: StudyAssistantModel
+    let engine: AIEngineModel
     let verse: BibleVerse
     /// Full book name for display and prompts; nil falls back to the book ID.
     var bookName: String?
@@ -47,81 +49,10 @@ struct StudyAssistantView: View {
 
             verseCard
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    if !hasAskedQuestion {
-                        ContentUnavailableView(
-                            "Ask About This Verse",
-                            systemImage: "sparkles",
-                            description: Text(
-                                "Enter a question to study the selected verse."
-                            )
-                        )
-                    } else if ownsCurrentAnswer {
-                        Label(
-                            "Generated explanation — not Scripture",
-                            systemImage: "sparkles"
-                        )
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                        .accessibilityIdentifier("generatedAnswerLabel")
-
-                        if !answerText.isEmpty {
-                            Text(answerText)
-                                .textSelection(.enabled)
-                                .frame(
-                                    maxWidth: .infinity,
-                                    alignment: .leading
-                                )
-                        }
-
-                        if model.state == .streaming {
-                            ProgressView()
-                                .controlSize(.small)
-                        }
-
-                        if case let .failed(message) = model.state {
-                            Text(message)
-                                .foregroundStyle(.red)
-                        }
-
-                        if model.state == .completed {
-                            Text("AI-generated and may contain errors. Check important points against the text.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            Divider()
-
-            TextField(
-                "Ask a question about this verse",
-                text: $question,
-                axis: .vertical
-            )
-            .lineLimit(2...5)
-            .disabled(model.state == .streaming)
-            .onSubmit {
-                startRequest()
-            }
-
-            HStack {
-                Spacer()
-
-                if model.state == .streaming {
-                    Button("Stop") {
-                        requestTask?.cancel()
-                    }
-                } else {
-                    Button("Ask") {
-                        startRequest()
-                    }
-                    .keyboardShortcut(.return)
-                    .disabled(trimmedQuestion.isEmpty)
-                }
+            if engine.choice.isUsable {
+                askContent
+            } else {
+                unavailableContent
             }
         }
         .padding()
@@ -133,6 +64,100 @@ struct StudyAssistantView: View {
         .onDisappear {
             requestTask?.cancel()
         }
+    }
+
+    @ViewBuilder
+    private var askContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if !hasAskedQuestion {
+                    ContentUnavailableView(
+                        "Ask About This Verse",
+                        systemImage: "sparkles",
+                        description: Text(
+                            "Enter a question to study the selected verse."
+                        )
+                    )
+                } else if ownsCurrentAnswer {
+                    Label(
+                        "Generated explanation — not Scripture",
+                        systemImage: "sparkles"
+                    )
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("generatedAnswerLabel")
+
+                    if !answerText.isEmpty {
+                        Text(answerText)
+                            .textSelection(.enabled)
+                            .frame(
+                                maxWidth: .infinity,
+                                alignment: .leading
+                            )
+                    }
+
+                    if model.state == .streaming {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    if case let .failed(message) = model.state {
+                        Text(message)
+                            .foregroundStyle(.red)
+                    }
+
+                    if model.state == .completed {
+                        Text("AI-generated and may contain errors. Check important points against the text.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        Divider()
+
+        TextField(
+            "Ask a question about this verse",
+            text: $question,
+            axis: .vertical
+        )
+        .lineLimit(2...5)
+        .disabled(model.state == .streaming)
+        .onSubmit {
+            startRequest()
+        }
+
+        HStack {
+            Spacer()
+
+            if model.state == .streaming {
+                Button("Stop") {
+                    requestTask?.cancel()
+                }
+            } else {
+                Button("Ask") {
+                    startRequest()
+                }
+                .keyboardShortcut(.return)
+                .disabled(trimmedQuestion.isEmpty)
+            }
+        }
+    }
+
+    /// Why AI can't answer here, with the download offer where it helps.
+    private var unavailableContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(engine.statusMessage)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("aiUnavailableMessage")
+            if engine.tier != nil {
+                ModelDownloadControls(engine: engine)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Canonical text, visibly separate from the generated answer below.

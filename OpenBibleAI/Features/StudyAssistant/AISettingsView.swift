@@ -1,0 +1,102 @@
+import BibleAI
+import SwiftUI
+
+/// Settings for on-device AI: which engine is used and the model download.
+struct AISettingsView: View {
+    let engine: AIEngineModel
+
+    var body: some View {
+        Form {
+            Section("AI Study") {
+                Text(engine.statusMessage)
+                    .accessibilityIdentifier("aiStatusMessage")
+            }
+
+            Section("Apple Intelligence") {
+                Text(appleStatusText)
+            }
+
+            if let tier = engine.tier {
+                Section("Downloadable model") {
+                    LabeledContent("Model", value: tier.displayName)
+                    LabeledContent("Download size", value: engine.downloadSizeText)
+                    ModelDownloadControls(engine: engine)
+                }
+            }
+
+            Section {
+                Text("Answers are generated on this device and may be wrong. Check important points against the text.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        #if os(macOS)
+        .frame(width: 480, height: 380)
+        #endif
+        .task {
+            await engine.refresh()
+        }
+    }
+
+    private var appleStatusText: String {
+        switch engine.appleStatus {
+        case .available:
+            "Available and used for AI study."
+        case .unavailable(.appleIntelligenceNotEnabled):
+            "Turned off. Turn on Apple Intelligence in System Settings to use Apple’s model."
+        case .unavailable(.modelNotReady):
+            "Preparing its model. This can take a while after turning it on."
+        case .unavailable(.deviceNotEligible):
+            "Not supported on this device."
+        case .unavailable(.unsupportedSystem):
+            "Requires a newer system version (26 or later)."
+        case .unavailable(.other):
+            "Not available right now."
+        }
+    }
+}
+
+/// Download / progress / cancel / delete controls for the device's model.
+struct ModelDownloadControls: View {
+    let engine: AIEngineModel
+
+    var body: some View {
+        switch engine.downloadState {
+        case let .downloading(fraction):
+            VStack(alignment: .leading, spacing: 6) {
+                ProgressView(value: fraction) {
+                    Text("Downloading… \(Int(fraction * 100))%")
+                }
+                .accessibilityIdentifier("modelDownloadProgress")
+                Button("Cancel Download") { engine.cancelDownload() }
+            }
+
+        case let .failed(message):
+            VStack(alignment: .leading, spacing: 6) {
+                Text(message)
+                    .foregroundStyle(.red)
+                Button("Try Again") { engine.startDownload() }
+            }
+
+        case .idle:
+            switch engine.choice {
+            case .mlx:
+                HStack {
+                    Label("Downloaded", systemImage: "checkmark.circle")
+                    Spacer()
+                    Button("Delete Model", role: .destructive) {
+                        Task { await engine.deleteModel() }
+                    }
+                }
+            case .needsDownload:
+                Button("Download Model (\(engine.downloadSizeText))") {
+                    engine.startDownload()
+                }
+                .accessibilityIdentifier("downloadModelButton")
+            case .apple, .unavailable:
+                EmptyView()
+            }
+        }
+    }
+}

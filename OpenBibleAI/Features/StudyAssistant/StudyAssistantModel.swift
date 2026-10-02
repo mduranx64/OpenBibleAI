@@ -30,19 +30,29 @@ final class StudyAssistantModel {
         @MainActor @Sendable () throws -> any AIProvider
     
     @ObservationIgnored
+    private let contextCharacterLimit: @MainActor @Sendable () -> Int
+
+    @ObservationIgnored
     private var requestGeneration = 0
 
     init(provider: any AIProvider) {
         self.makeProvider = {
             provider
         }
+        self.contextCharacterLimit = { BibleStudyContext.defaultCharacterLimit }
     }
-    
+
+    /// `contextCharacterLimit` is read per question, so it follows the engine
+    /// in use (compact on-device models get a smaller chapter window).
     init(
         makeProvider: @escaping
-            @MainActor @Sendable () throws -> any AIProvider
+            @MainActor @Sendable () throws -> any AIProvider,
+        contextCharacterLimit: @escaping @MainActor @Sendable () -> Int = {
+            BibleStudyContext.defaultCharacterLimit
+        }
     ) {
         self.makeProvider = makeProvider
+        self.contextCharacterLimit = contextCharacterLimit
     }
 
     /// Generated text for `reference`, or an empty string if the current
@@ -80,7 +90,8 @@ final class StudyAssistantModel {
                 bookName: bookName,
                 context: BibleStudyContext.verses(
                     in: chapterVerses,
-                    around: verse.reference
+                    around: verse.reference,
+                    characterLimit: contextCharacterLimit()
                 ),
                 question: question
             )

@@ -11,6 +11,7 @@ import BibleDomain
 struct BibleReaderView: View {
     let model: BibleReaderModel
     let studyAssistantModel: StudyAssistantModel
+    let aiEngine: AIEngineModel
     let catalogModel: BibleCatalogModel
     let textSearchModel: BibleTextSearchModel
 
@@ -38,6 +39,7 @@ struct BibleReaderView: View {
     init(
         model: BibleReaderModel,
         studyAssistantModel: StudyAssistantModel,
+        aiEngine: AIEngineModel,
         catalogModel: BibleCatalogModel,
         searchModel: BibleReferenceSearchModel,
         textSearchModel: BibleTextSearchModel,
@@ -45,6 +47,7 @@ struct BibleReaderView: View {
     ) {
         self.model = model
         self.studyAssistantModel = studyAssistantModel
+        self.aiEngine = aiEngine
         self.catalogModel = catalogModel
         self.textSearchModel = textSearchModel
         _navigation = State(initialValue: BibleReaderNavigationModel(
@@ -375,6 +378,7 @@ struct BibleReaderView: View {
             if verse.reference == reference {
                 StudyAssistantView(
                     model: studyAssistantModel,
+                    engine: aiEngine,
                     verse: verse,
                     bookName: bookName(for: verse.reference.bookID),
                     chapterVerses: loadedChapterVerses(for: verse.reference)

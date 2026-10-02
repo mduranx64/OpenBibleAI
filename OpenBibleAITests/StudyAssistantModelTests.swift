@@ -223,7 +223,29 @@ struct StudyAssistantModelTests {
     }
 
     @Test
-    func displaysOllamaServerMessageOnFailure() async throws {
+    func contextLimitFollowsTheEngineInUse() async throws {
+        let recorder = RequestRecorder()
+        let model = StudyAssistantModel(
+            makeProvider: { RecordingAIProvider(recorder: recorder, answer: "ok") },
+            contextCharacterLimit: { 900 }
+        )
+        let chapter = try (1...40).map {
+            try verse($0, text: String(repeating: "x", count: 300))
+        }
+
+        await model.ask(
+            verse: try verse(20, text: String(repeating: "x", count: 300)),
+            chapterVerses: chapter,
+            question: "Why?"
+        )
+
+        let request = try #require(recorder.requests.first)
+        #expect(request.context.count == 3)
+        #expect(request.context.reduce(0) { $0 + $1.text.count } <= 900)
+    }
+
+    @Test
+    func displaysTheEngineErrorMessageOnFailure() async throws {
         let reference = try BibleReference(
             bookID: "GEN",
             chapter: 1,
@@ -236,7 +258,7 @@ struct StudyAssistantModelTests {
         )
 
         let model = StudyAssistantModel(
-            provider: OllamaErrorAIProvider()
+            provider: FailingAIProvider(error: AIEngineError.contextTooLong)
         )
 
         await model.ask(
@@ -246,7 +268,7 @@ struct StudyAssistantModelTests {
 
         #expect(
             model.state == .failed(
-                "model 'missing-model' not found"
+                AIEngineError.contextTooLong.errorDescription ?? ""
             )
         )
     }
@@ -320,17 +342,14 @@ private struct TwoStreamAIProvider: AIProvider {
     }
 }
 
-private struct OllamaErrorAIProvider: AIProvider {
+private struct FailingAIProvider: AIProvider {
+    let error: any Error
+
     func streamResponse(
         for request: BibleStudyRequest
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
-            continuation.finish(
-                throwing:
-                    OllamaProvider.ProviderError.serverMessage(
-                        "model 'missing-model' not found"
-                    )
-            )
+            continuation.finish(throwing: error)
         }
     }
 }

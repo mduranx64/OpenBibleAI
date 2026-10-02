@@ -12,8 +12,10 @@ import BibleAI
 struct ContentView: View {
     let appModel: AppModel
     let studyAssistantModel: StudyAssistantModel
-    let ollamaSettingsModel: OllamaSettingsModel
+    let aiEngine: AIEngineModel
     let readingPositionStore: ReadingPositionStore
+
+    @Environment(\.scenePhase) private var scenePhase
 
     #if !os(macOS)
     @State private var isShowingSettings = false
@@ -45,6 +47,7 @@ struct ContentView: View {
                 BibleReaderView(
                     model: readerModel,
                     studyAssistantModel: studyAssistantModel,
+                    aiEngine: aiEngine,
                     catalogModel: catalogModel,
                     searchModel: searchModel,
                     textSearchModel: textSearchModel,
@@ -76,7 +79,19 @@ struct ContentView: View {
             await appModel.start()
         }
         .task {
-            await ollamaSettingsModel.load()
+            await aiEngine.refresh()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                // Apple Intelligence may have been turned on, or a model
+                // finished preparing, while the app was in the background.
+                Task { await aiEngine.refresh() }
+            case .background:
+                aiEngine.unloadModel()
+            default:
+                break
+            }
         }
         #if !os(macOS)
         .toolbar {
@@ -84,14 +99,14 @@ struct ContentView: View {
                 Button {
                     isShowingSettings = true
                 } label: {
-                    Label("Ollama Settings", systemImage: "gearshape")
+                    Label("AI Settings", systemImage: "gearshape")
                 }
             }
         }
         .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
-                OllamaSettingsView(model: ollamaSettingsModel)
-                    .navigationTitle("Ollama Settings")
+                AISettingsView(engine: aiEngine)
+                    .navigationTitle("AI Settings")
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Done") {

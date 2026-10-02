@@ -14,7 +14,7 @@ import BibleDomain
 struct OpenBibleAIApp: App {
     @State private var appModel: AppModel
     @State private var studyAssistantModel: StudyAssistantModel
-    @State private var ollamaSettingsModel: OllamaSettingsModel
+    @State private var aiEngine: AIEngineModel
     private let readingPositionStore: ReadingPositionStore
 
     @MainActor
@@ -56,36 +56,23 @@ struct OpenBibleAIApp: App {
             defaults: UserDefaults.standard
         )
         
-        let catalog = OllamaModelCatalog()
-
-        let settingsModel = OllamaSettingsModel(
-            loadModels: {
-                try await catalog.models()
-            }
-        )
+        let aiEngine = AIEngineModel.live()
 
         let assistantModel = StudyAssistantModel(
             makeProvider: {
-                guard let modelName =
-                    settingsModel.selectedModelName
-                else {
-                    throw AIConfigurationError.noModelSelected
-                }
-
-                return OllamaProvider(
-                    model: modelName
-                )
+                try aiEngine.makeProvider()
+            },
+            contextCharacterLimit: {
+                aiEngine.contextCharacterLimit
             }
         )
-        
+
         _appModel = State(initialValue: appModel)
         _studyAssistantModel = State(
             initialValue: assistantModel
         )
         
-        _ollamaSettingsModel = State(
-            initialValue: settingsModel
-        )
+        _aiEngine = State(initialValue: aiEngine)
     }
 
     var body: some Scene {
@@ -93,7 +80,7 @@ struct OpenBibleAIApp: App {
             ContentView(
                 appModel: appModel,
                 studyAssistantModel: studyAssistantModel,
-                ollamaSettingsModel: ollamaSettingsModel,
+                aiEngine: aiEngine,
                 readingPositionStore: readingPositionStore
             )
         }
@@ -102,9 +89,7 @@ struct OpenBibleAIApp: App {
 
         #if os(macOS)
         Settings {
-            OllamaSettingsView(
-                model: ollamaSettingsModel
-            )
+            AISettingsView(engine: aiEngine)
         }
         #endif
     }
@@ -112,18 +97,4 @@ struct OpenBibleAIApp: App {
 
 private enum LaunchError: Error, Sendable {
     case missingResource(String)
-}
-
-private enum AIConfigurationError:
-    LocalizedError,
-    Sendable
-{
-    case noModelSelected
-
-    var errorDescription: String? {
-        switch self {
-        case .noModelSelected:
-            "No Ollama model is selected. Open Settings and select a model."
-        }
-    }
 }
