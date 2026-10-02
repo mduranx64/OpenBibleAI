@@ -5,25 +5,54 @@
 
 import Foundation
 
-/// A downloadable model pinned to one Hugging Face revision, with the size
-/// and SHA-256 of every file the MLX loader needs.
+/// A download pinned to one revision, with the size and SHA-256 of every
+/// file: a model on Hugging Face (`repository` at a commit) or the assets of a
+/// GitHub release (`repository` at a tag), such as a Bible version package.
 public struct ModelManifest: Equatable, Sendable {
     public struct File: Equatable, Sendable {
         public let name: String
         public let size: Int64
         public let sha256: String
+
+        public init(name: String, size: Int64, sha256: String) {
+            self.name = name
+            self.size = size
+            self.sha256 = sha256
+        }
+    }
+
+    public enum Host: Equatable, Sendable {
+        case huggingFace
+        case gitHubRelease
+        /// `<base>/<revision>/<file>`, e.g. a local server in UI tests.
+        case baseURL(URL)
     }
 
     public let repository: String
     public let revision: String
     public let files: [File]
+    public let host: Host
+
+    public init(repository: String, revision: String, files: [File], host: Host = .huggingFace) {
+        self.repository = repository
+        self.revision = revision
+        self.files = files
+        self.host = host
+    }
 
     public var totalBytes: Int64 {
         files.reduce(0) { $0 + $1.size }
     }
 
     func url(for file: File) -> URL {
-        URL(string: "https://huggingface.co/\(repository)/resolve/\(revision)/\(file.name)")!
+        switch host {
+        case .huggingFace:
+            URL(string: "https://huggingface.co/\(repository)/resolve/\(revision)/\(file.name)")!
+        case .gitHubRelease:
+            URL(string: "https://github.com/\(repository)/releases/download/\(revision)/\(file.name)")!
+        case let .baseURL(base):
+            base.appendingPathComponent(revision).appendingPathComponent(file.name)
+        }
     }
 }
 

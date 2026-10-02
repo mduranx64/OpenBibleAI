@@ -18,12 +18,15 @@ public struct InMemoryBibleRepository:
     /// Verses in canonical reading order, so text search can scan once.
     private let versesInReadingOrder: [BibleVerse]
     /// Built on first ranked search (≈ a fraction of a second), then reused.
-    private let rankedIndex = LazyRankedIndex()
+    private let rankedIndex: LazyRankedIndex
 
+    /// `language` (BCP-47) selects the keyword-ranking `TextAnalyzer`.
     public init(
         verses: [BibleVerse],
-        books: [BibleBook] = []
+        books: [BibleBook] = [],
+        language: String = "en"
     ) {
+        self.rankedIndex = LazyRankedIndex(analyzer: TextAnalyzer(languageCode: language))
         var versesByReference: [BibleReference: BibleVerse] = [:]
 
         for verse in verses {
@@ -185,11 +188,16 @@ public struct InMemoryBibleRepository:
 private final class LazyRankedIndex: @unchecked Sendable {
     private let lock = NSLock()
     private var index: RankedVerseIndex?
+    private let analyzer: TextAnalyzer
+
+    init(analyzer: TextAnalyzer) {
+        self.analyzer = analyzer
+    }
 
     func value(building verses: [BibleVerse]) -> RankedVerseIndex {
         lock.withLock {
             if let index { return index }
-            let built = RankedVerseIndex(verses: verses)
+            let built = RankedVerseIndex(verses: verses, analyzer: analyzer)
             index = built
             return built
         }

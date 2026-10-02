@@ -190,3 +190,54 @@ struct BibleQuestionPromptTests {
         #expect(prompt.user.contains("No passages were found"))
     }
 }
+
+struct SearchProfileTests {
+    private func spanishPassage() throws -> BibleQuestionPrompt.Passage {
+        let verse = try BibleVerse(
+            reference: BibleReference(bookID: "MAT", chapter: 2, verse: 1),
+            text: "Y como fué nacido Jesús en Bethlehem de Judea"
+        )
+        return BibleQuestionPrompt.Passage(
+            bookName: "Mateo",
+            passage: BiblePassage(bookID: "MAT", chapter: 2, verses: [verse])
+        )
+    }
+
+    @Test
+    func theKJVProfileKeepsTheEnglishPromptText() {
+        let prompt = BibleQuestionPrompt.keywords(for: "¿Dónde nació Jesús?", profile: .kjv)
+        #expect(prompt == BibleQuestionPrompt.keywords(for: "¿Dónde nació Jesús?"))
+        #expect(prompt.system.contains("search keywords for the English King James Version"))
+    }
+
+    @Test
+    func versionProfilesFollowTheTextsLanguage() throws {
+        let rv = try BibleVersion(id: "rv1909", name: "Reina-Valera 1909", abbreviation: "RV1909", languageCode: "es", copyright: "")
+        let profile = BibleQuestionPrompt.SearchProfile(version: rv)
+        #expect(profile.languageName == "Spanish")
+
+        let keywords = BibleQuestionPrompt.keywords(for: "Where was Jesus born?", profile: profile)
+        #expect(keywords.system.contains("search keywords for the Spanish Reina-Valera 1909"))
+        #expect(keywords.system.contains("3 to 8 Spanish words"))
+        #expect(!keywords.system.contains("King James"))
+
+        let answer = BibleQuestionPrompt.answer(question: "Where was Jesus born?", passages: [try spanishPassage()], profile: profile)
+        #expect(answer.user.contains("Passages (Reina-Valera 1909):"))
+        #expect(answer.user.contains("Mateo 2:1 Y como fué nacido"))
+        #expect(answer.system.contains("[Mateo 2:1]"))
+        #expect(answer.system.contains("using the book names shown in the passages"))
+        #expect(!answer.system.contains("English book names"))
+    }
+
+    @Test
+    func portugueseAndOtherLanguagesGetProfiles() throws {
+        let almeida = try BibleVersion(id: "almeida", name: "Almeida", abbreviation: "ARC", languageCode: "pt-BR", copyright: "")
+        #expect(BibleQuestionPrompt.SearchProfile(version: almeida).citationExample == "[Mateus 2:1]")
+
+        let german = try BibleVersion(id: "lut", name: "Luther 1912", abbreviation: "LUT", languageCode: "de", copyright: "")
+        let profile = BibleQuestionPrompt.SearchProfile(version: german)
+        #expect(profile.languageName == "German")
+        let keywords = BibleQuestionPrompt.keywords(for: "Wo wurde Jesus geboren?", profile: profile)
+        #expect(keywords.system.contains("German Luther 1912"))
+    }
+}

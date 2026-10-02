@@ -9,7 +9,8 @@ import NaturalLanguage
 
 /// Prompts for the Bible chat: first search keywords, then an answer
 /// grounded only in retrieved passages (and an attached verse), with
-/// bracketed citations. Earlier turns are context, not sources.
+/// bracketed citations. Earlier turns are context, not sources. A
+/// `SearchProfile` names the version searched (the KJV by default).
 public enum BibleQuestionPrompt {
     /// Characters of earlier conversation sent with a question by default.
     public static let defaultHistoryCharacterLimit = 2_000
@@ -101,7 +102,8 @@ public enum BibleQuestionPrompt {
         previous: Turn? = nil,
         earlierQuestions: [String] = [],
         summary: String? = nil,
-        focus: FocusVerse? = nil
+        focus: FocusVerse? = nil,
+        profile: SearchProfile = .kjv
     ) -> BibleStudyPrompt {
         var user = question
         var context: [String] = []
@@ -131,11 +133,11 @@ public enum BibleQuestionPrompt {
 
         return BibleStudyPrompt(
             system: """
-            You turn questions about the Bible into search keywords for the English King James Version.
-            Reply with 3 to 8 English words separated by commas, using King James vocabulary \
-            (for example "healed", "sight", "begat"). Include the key people and places, \
-            and always the English words for the question's main subject \
-            (for example "blind" for "ciego"). \
+            You turn questions about the Bible into search keywords for the \(profile.languageName) \(profile.versionName).
+            Reply with 3 to 8 \(profile.languageName) words separated by commas, using \(profile.vocabularyName) vocabulary \
+            (for example \(profile.vocabularyExample)). Include the key people and places, \
+            and always the \(profile.languageName) words for the question's main subject \
+            (for example \(profile.translationExample)). \
             Translate questions asked in other languages. \
             Use the earlier conversation, previous question, previous answer or verse, when given, \
             to understand what the question refers to. \
@@ -155,13 +157,14 @@ public enum BibleQuestionPrompt {
         history: [Turn] = [],
         summary: String? = nil,
         focus: FocusVerse? = nil,
-        historyCharacterLimit: Int = defaultHistoryCharacterLimit
+        historyCharacterLimit: Int = defaultHistoryCharacterLimit,
+        profile: SearchProfile = .kjv
     ) -> BibleStudyPrompt {
         let system = """
         You answer questions about the Bible using only the passages provided.
         Earlier conversation is only context for follow-up questions; do not cite it.
-        Cite every statement with its verse in square brackets, exactly like [Matthew 2:1] \
-        or [Luke 2:4-7], using the English book names shown in the passages.
+        Cite every statement with its verse in square brackets, exactly like \(profile.citationExample) \
+        or \(profile.rangeCitationExample), using the \(profile.bookNamesDescription) shown in the passages.
         Do not cite verses that are not in the passages.
         If the passages do not answer the question, say so briefly.
         Do not quote or translate the verses; summarize them in your own words and cite them.
@@ -209,19 +212,98 @@ public enum BibleQuestionPrompt {
         return BibleStudyPrompt(
             system: system,
             user: """
-            \(sections.map { $0 + "\n\n" }.joined())Passages (King James Version):
+            \(sections.map { $0 + "\n\n" }.joined())Passages (\(profile.versionName)):
             \(body)
 
             Question:
             \(question)
 
-            Write your answer \(language). Cite verses in brackets with the English book names shown, like [Matthew 2:1]. Summarize the verses; do not quote or translate them.
+            Write your answer \(language). Cite verses in brackets with the \(profile.bookNamesDescription) shown, like \(profile.citationExample). Summarize the verses; do not quote or translate them.
             """
         )
     }
 }
 
 extension BibleQuestionPrompt {
+    /// How the prompts name the version being searched, its language and
+    /// vocabulary, and how its citations look (e.g. `[Mateo 2:1]`).
+    public struct SearchProfile: Equatable, Sendable {
+        public let versionName: String
+        /// English name of the text's language, e.g. "Spanish".
+        public let languageName: String
+        /// Short name for the version's wording, e.g. "King James".
+        public let vocabularyName: String
+        public let vocabularyExample: String
+        public let translationExample: String
+        public let citationExample: String
+        public let rangeCitationExample: String
+        public let bookNamesDescription: String
+
+        /// The King James Version, worded exactly as the original prompts.
+        public static let kjv = SearchProfile(
+            versionName: "King James Version",
+            languageName: "English",
+            vocabularyName: "King James",
+            vocabularyExample: "\"healed\", \"sight\", \"begat\"",
+            translationExample: "\"blind\" for \"ciego\"",
+            citationExample: "[Matthew 2:1]",
+            rangeCitationExample: "[Luke 2:4-7]",
+            bookNamesDescription: "English book names"
+        )
+
+        public init(
+            versionName: String,
+            languageName: String,
+            vocabularyName: String,
+            vocabularyExample: String,
+            translationExample: String,
+            citationExample: String,
+            rangeCitationExample: String,
+            bookNamesDescription: String
+        ) {
+            self.versionName = versionName
+            self.languageName = languageName
+            self.vocabularyName = vocabularyName
+            self.vocabularyExample = vocabularyExample
+            self.translationExample = translationExample
+            self.citationExample = citationExample
+            self.rangeCitationExample = rangeCitationExample
+            self.bookNamesDescription = bookNamesDescription
+        }
+
+        /// The profile for an installed version: the KJV's for "kjv", examples
+        /// in Spanish or Portuguese for those languages, plain wording otherwise.
+        public init(version: BibleVersion) {
+            if version.id == "kjv" {
+                self = .kjv
+                return
+            }
+            let code = Locale.Language(identifier: version.languageCode).languageCode?.identifier ?? version.languageCode
+            let language = Locale(identifier: "en").localizedString(forLanguageCode: code) ?? version.languageCode
+            let examples: (vocabulary: String, translation: String, citation: String, range: String)
+            switch code {
+            case "en":
+                examples = ("\"healed\", \"sight\", \"begat\"", "\"blind\" for \"ciego\"", "[Matthew 2:1]", "[Luke 2:4-7]")
+            case "es":
+                examples = ("\"sanó\", \"vista\", \"engendró\"", "\"ciego\" for \"blind\"", "[Mateo 2:1]", "[Lucas 2:4-7]")
+            case "pt":
+                examples = ("\"curou\", \"vista\", \"gerou\"", "\"cego\" for \"blind\"", "[Mateus 2:1]", "[Lucas 2:4-7]")
+            default:
+                examples = ("words from its text", "the \(language) word for the subject", "[Book 2:1]", "[Book 2:4-7]")
+            }
+            self.init(
+                versionName: version.name,
+                languageName: language,
+                vocabularyName: version.name,
+                vocabularyExample: examples.vocabulary,
+                translationExample: examples.translation,
+                citationExample: examples.citation,
+                rangeCitationExample: examples.range,
+                bookNamesDescription: code == "en" ? "English book names" : "book names"
+            )
+        }
+    }
+
     /// A model's summary cut to `characterLimit`, ending at the last full
     /// sentence that fits (or the limit itself when no sentence end fits).
     public static func trimmedSummary(_ text: String, characterLimit: Int) -> String {

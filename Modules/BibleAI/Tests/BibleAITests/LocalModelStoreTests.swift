@@ -33,6 +33,19 @@ struct LocalModelStoreTests {
         )
     }
 
+    @Test
+    func manifestsResolveHuggingFaceAndGitHubReleaseURLs() {
+        let file = ModelManifest.File(name: "verses.json", size: 1, sha256: "")
+        let model = ModelManifest(repository: "org/model", revision: "abc", files: [file])
+        #expect(model.url(for: file).absoluteString == "https://huggingface.co/org/model/resolve/abc/verses.json")
+
+        let release = ModelManifest(repository: "owner/repo", revision: "bible-kjv-1", files: [file], host: .gitHubRelease)
+        #expect(release.url(for: file).absoluteString == "https://github.com/owner/repo/releases/download/bible-kjv-1/verses.json")
+
+        let local = ModelManifest(repository: "", revision: "kjv", files: [file], host: .baseURL(URL(string: "http://127.0.0.1:8080")!))
+        #expect(local.url(for: file).absoluteString == "http://127.0.0.1:8080/kjv/verses.json")
+    }
+
     private func temporaryDirectory() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("LocalModelStoreTests-\(UUID().uuidString)")

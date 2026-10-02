@@ -16,9 +16,11 @@ public struct JSONBibleRepository:
 {
     private let base: InMemoryBibleRepository
 
+    /// `language` (BCP-47) selects the keyword-ranking rules.
     public init(
         data: Data,
-        books: [BibleBook] = []
+        books: [BibleBook] = [],
+        language: String = "en"
     ) throws {
         let decoder = JSONDecoder()
 
@@ -47,7 +49,8 @@ public struct JSONBibleRepository:
 
         self.base = InMemoryBibleRepository(
             verses: verses,
-            books: books
+            books: books,
+            language: language
         )
     }
 
@@ -110,7 +113,8 @@ public struct JSONBibleRepository:
     @concurrent
     public static func load(
         from fileURL: URL,
-        books: [BibleBook] = []
+        books: [BibleBook] = [],
+        language: String = "en"
     ) async throws -> Self {
         try Task.checkCancellation()
 
@@ -123,7 +127,8 @@ public struct JSONBibleRepository:
 
         let repository = try Self(
             data: data,
-            books: books
+            books: books,
+            language: language
         )
 
         try Task.checkCancellation()

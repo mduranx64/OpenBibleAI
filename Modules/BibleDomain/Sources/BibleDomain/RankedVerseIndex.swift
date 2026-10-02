@@ -16,9 +16,8 @@ public struct RankedVerse: Equatable, Sendable {
     }
 }
 
-/// BM25 keyword ranking over verses. Words are case- and diacritic-folded
-/// (`BibleTextQuery.words`), common and archaic stop words are dropped, and a
-/// light suffix stemmer lets "healed", "healeth" and "healing" match "heal".
+/// BM25 keyword ranking over verses, tokenized by a language's
+/// `TextAnalyzer` (in English, "healed", "healeth" and "healing" match "heal").
 public struct RankedVerseIndex: Sendable {
     private struct Posting: Sendable {
         let verse: Int32
@@ -29,18 +28,19 @@ public struct RankedVerseIndex: Sendable {
     private let lengths: [Int]
     private let averageLength: Double
     private let postings: [String: [Posting]]
+    private let analyzer: TextAnalyzer
 
     private static let k1 = 1.2
     private static let b = 0.75
 
     /// `verses` should be in reading order; ties keep that order.
-    public init(verses: [BibleVerse]) {
+    public init(verses: [BibleVerse], analyzer: TextAnalyzer = .english) {
         var postings: [String: [Posting]] = [:]
         var lengths: [Int] = []
         lengths.reserveCapacity(verses.count)
 
         for (index, verse) in verses.enumerated() {
-            let tokens = Self.tokens(in: verse.text)
+            let tokens = analyzer.tokens(in: verse.text)
             lengths.append(tokens.count)
             var counts: [String: Int] = [:]
             for token in tokens { counts[token, default: 0] += 1 }
@@ -55,11 +55,12 @@ public struct RankedVerseIndex: Sendable {
         self.lengths = lengths
         self.averageLength = lengths.isEmpty ? 1 : Double(lengths.reduce(0, +)) / Double(lengths.count)
         self.postings = postings
+        self.analyzer = analyzer
     }
 
     /// Ranks verses for the given terms (free text; tokenized like verses).
     public func search(terms: [String], limit: Int) -> [RankedVerse] {
-        let queryTokens = Set(terms.flatMap(Self.tokens(in:)))
+        let queryTokens = Set(terms.flatMap(analyzer.tokens(in:)))
         guard !queryTokens.isEmpty, limit > 0 else { return [] }
 
         let count = Double(references.count)
@@ -86,43 +87,8 @@ public struct RankedVerseIndex: Sendable {
 
     // MARK: - Tokens
 
+    /// English (KJV) tokens; see `TextAnalyzer.english`.
     public static func tokens(in text: String) -> [String] {
-        BibleTextQuery.words(in: text)
-            .filter { !stopWords.contains($0) }
-            .map(stem)
+        TextAnalyzer.english.tokens(in: text)
     }
-
-    static func stem(_ word: String) -> String {
-        var w = word
-        func drop(_ suffix: String, minimumLength: Int) -> Bool {
-            guard w.count >= minimumLength, w.hasSuffix(suffix) else { return false }
-            w.removeLast(suffix.count)
-            return true
-        }
-
-        if !(drop("eth", minimumLength: 5) || drop("est", minimumLength: 5)
-             || drop("ing", minimumLength: 6) || drop("ed", minimumLength: 5)
-             || drop("es", minimumLength: 5)) {
-            if w.count > 3, w.hasSuffix("s"),
-               !w.hasSuffix("ss"), !w.hasSuffix("us"), !w.hasSuffix("is") {
-                w.removeLast()
-            }
-        }
-        if w.count > 3, w.hasSuffix("e") { w.removeLast() }
-        return w
-    }
-
-    private static let stopWords: Set<String> = [
-        "a", "about", "after", "again", "all", "also", "am", "an", "and", "any", "are",
-        "art", "as", "at", "be", "because", "been", "before", "but", "by", "came", "can",
-        "come", "did", "do", "does", "doth", "done", "even", "for", "from", "go", "had",
-        "hast", "hath", "have", "he", "her", "here", "him", "his", "how", "i", "if", "in",
-        "into", "is", "it", "its", "let", "may", "me", "mine", "my", "no", "nor", "not",
-        "now", "o", "of", "on", "one", "or", "our", "out", "said", "saith", "say", "shall",
-        "she", "should", "so", "than", "that", "the", "thee", "their", "them", "then",
-        "there", "these", "they", "thine", "this", "those", "thou", "thus", "thy", "to",
-        "unto", "up", "upon", "us", "was", "we", "went", "were", "what", "when", "where",
-        "which", "who", "whom", "whose", "why", "will", "with", "would", "ye", "yet",
-        "you", "your"
-    ]
 }
