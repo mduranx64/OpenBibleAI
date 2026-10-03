@@ -127,6 +127,11 @@ private struct BibleVersionRow: View {
                 Text(entry.version.copyright)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let update = library.availableUpdate(entry.id) {
+                    Text("Update available · \(ByteCountFormatter.string(fromByteCount: update.downloadSize, countStyle: .file))")
+                        .font(.caption)
+                        .foregroundStyle(.tint)
+                }
                 if case let .failed(message) = library.downloads[entry.id] {
                     Text(message)
                         .font(.caption)
@@ -169,7 +174,16 @@ private struct BibleVersionRow: View {
         case .failed:
             Button("Try Again") { library.install(entry.id) }
         case nil:
-            if isInstalled {
+            if isInstalled, library.availableUpdate(entry.id) != nil {
+                HStack {
+                    Button("Update") { library.update(entry.id) }
+                        .accessibilityIdentifier("updateBible-\(entry.id)")
+                    if allowsDelete, entry.id != library.activeVersionID, library.installedIDs.count > 1 {
+                        Button("Delete", role: .destructive) { isConfirmingDelete = true }
+                            .accessibilityIdentifier("deleteBible-\(entry.id)")
+                    }
+                }
+            } else if isInstalled {
                 if allowsDelete, entry.id != library.activeVersionID, library.installedIDs.count > 1 {
                     Button("Delete", role: .destructive) { isConfirmingDelete = true }
                         .accessibilityIdentifier("deleteBible-\(entry.id)")

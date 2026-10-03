@@ -19,6 +19,35 @@ nonisolated struct BibleCatalogEntry: Identifiable, Equatable, Sendable, Codable
     var downloadSize: Int64 { manifest.downloadBytes }
 }
 
+/// Where a newer revision of an installed version downloads (beside it, so
+/// the installed one stays readable) and how it then replaces it.
+nonisolated struct BibleUpdateStaging: Sendable {
+    let makeStore: @Sendable (BibleCatalogEntry) -> any LocalModelStoring
+    /// Moves the staged version (by ID) over the installed one.
+    let promote: @Sendable (String) async throws -> Void
+    /// Removes a staged download that failed or was cancelled.
+    let discard: @Sendable (String) async -> Void
+
+    /// Staging in `<directory>/.staging/<id>`, swapped in with one replace.
+    static func live(directory: URL) -> BibleUpdateStaging {
+        let staging = directory.appendingPathComponent(".staging", isDirectory: true)
+        return BibleUpdateStaging(
+            makeStore: { entry in
+                LocalModelStore(manifest: entry.manifest, directory: staging.appendingPathComponent(entry.id, isDirectory: true))
+            },
+            promote: { id in
+                _ = try FileManager.default.replaceItemAt(
+                    directory.appendingPathComponent(id, isDirectory: true),
+                    withItemAt: staging.appendingPathComponent(id, isDirectory: true)
+                )
+            },
+            discard: { id in
+                try? FileManager.default.removeItem(at: staging.appendingPathComponent(id, isDirectory: true))
+            }
+        )
+    }
+}
+
 /// An installed version, loaded for reading, search and the chat.
 nonisolated struct LoadedBible: Sendable {
     let version: BibleVersion
@@ -31,7 +60,8 @@ nonisolated struct LoadedBible: Sendable {
 /// delete, the active reading version, and loading installed versions.
 /// The catalog starts as the built-in one and, with `updates`, takes newer
 /// versions from the signed remote catalog; installed versions stay pinned to
-/// the entry they were installed from. UI-facing, main-actor state.
+/// the entry they were installed from until the user updates them.
+/// UI-facing, main-actor state.
 @MainActor
 @Observable
 final class BibleLibraryModel {
@@ -45,6 +75,8 @@ final class BibleLibraryModel {
     }
 
     private(set) var catalog: [BibleCatalogEntry]
+    /// The newest entry of each version, ignoring what is installed.
+    private(set) var latest: [String: BibleCatalogEntry]
     private(set) var installedIDs: Set<String> = []
     /// Downloads in progress or failed, by version ID.
     private(set) var downloads: [String: DownloadState] = [:]
@@ -58,11 +90,14 @@ final class BibleLibraryModel {
     @ObservationIgnored private var remote: BibleCatalogDocument?
     @ObservationIgnored private let makeStore: ((BibleCatalogEntry) -> any LocalModelStoring)?
     @ObservationIgnored private let updates: BibleCatalogUpdates?
+    @ObservationIgnored private let staging: BibleUpdateStaging?
     @ObservationIgnored private let defaults: any ReadingPositionStorage
     @ObservationIgnored private let load: @Sendable (BibleCatalogEntry, URL) async throws -> LoadedBible
     @ObservationIgnored private var tasks: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private var generations: [String: Int] = [:]
     @ObservationIgnored private var loaded: [String: Task<LoadedBible, any Error>] = [:]
+    /// Called after a version was updated, to reload it if it is being read.
+    @ObservationIgnored var versionUpdated: (@MainActor (String) async -> Void)?
 
     private static let activeVersionKey = "bible.activeVersion"
 
@@ -74,14 +109,17 @@ final class BibleLibraryModel {
         stores: [String: any LocalModelStoring] = [:],
         makeStore: ((BibleCatalogEntry) -> any LocalModelStoring)? = nil,
         updates: BibleCatalogUpdates? = nil,
+        staging: BibleUpdateStaging? = nil,
         defaults: any ReadingPositionStorage,
         load: @escaping @Sendable (BibleCatalogEntry, URL) async throws -> LoadedBible = BibleLibraryModel.loadPackage
     ) {
         self.catalog = catalog
+        self.latest = Dictionary(catalog.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         self.builtIn = BibleCatalogDocument(schema: BibleCatalogDocument.currentSchema, sequence: sequence, entries: catalog)
         self.stores = stores
         self.makeStore = makeStore
         self.updates = updates
+        self.staging = staging
         self.defaults = defaults
         self.load = load
         for entry in catalog where stores[entry.id] != nil {
@@ -103,6 +141,7 @@ final class BibleLibraryModel {
                 LocalModelStore(manifest: entry.manifest, directory: directory.appendingPathComponent(entry.id, isDirectory: true))
             },
             updates: BibleCatalogUpdates.live(directory: directory),
+            staging: .live(directory: directory),
             defaults: defaults
         )
     }
@@ -142,12 +181,24 @@ final class BibleLibraryModel {
         catalog.first { $0.id == id }
     }
 
+    /// The newer revision of an installed version, if the catalog moved on.
+    func availableUpdate(_ id: String) -> BibleCatalogEntry? {
+        guard installedIDs.contains(id),
+              let installed = entry(id),
+              let newest = latest[id],
+              newest.manifest.revision != installed.manifest.revision
+        else { return nil }
+        return newest
+    }
+
     func refresh() async {
         if let updates {
             if remote == nil, let cached = await updates.storage.cachedCatalog() {
                 remote = try? updates.verifier.document(from: cached.catalog, signature: cached.signature)
             }
             catalog = BibleCatalogEntry.merged(builtIn: builtIn, remote: remote, pinned: await updates.storage.pinnedEntries())
+            let newest = BibleCatalogEntry.merged(builtIn: builtIn, remote: remote, pinned: [])
+            latest = Dictionary(newest.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             syncStores()
         }
 
@@ -193,7 +244,40 @@ final class BibleLibraryModel {
     func install(_ id: String) -> Task<Void, Never> {
         if let task = tasks[id] { return task }
         guard let store = stores[id] else { return Task {} }
+        // The entry the store downloads, remembered once it's installed.
+        let installing = entry(id)
+        return download(id, with: store) { library in
+            if let installing { await library.updates?.storage.pin(installing) }
+        }
+    }
 
+    /// Downloads the newer revision beside the installed one, then swaps it
+    /// in and reloads it; until then the installed revision stays readable.
+    /// A failed or cancelled update keeps the installed revision.
+    @discardableResult
+    func update(_ id: String) -> Task<Void, Never> {
+        if let task = tasks[id] { return task }
+        guard let newest = availableUpdate(id), let staging else { return Task {} }
+        return download(id, with: staging.makeStore(newest), abandon: { await staging.discard(id) }) { library in
+            try await staging.promote(id)
+            library.loaded[id]?.cancel()
+            library.loaded[id] = nil
+            await library.updates?.storage.pin(newest)
+        } reload: { library in
+            await library.versionUpdated?(id)
+        }
+    }
+
+    /// Runs one download with progress, cancellation and failure reporting.
+    /// `finish` completes a successful download (an error fails it), then the
+    /// library refreshes and `reload` runs; `abandon` cleans up otherwise.
+    private func download(
+        _ id: String,
+        with store: any LocalModelStoring,
+        abandon: @escaping @MainActor () async -> Void = {},
+        finish: @escaping @MainActor (BibleLibraryModel) async throws -> Void,
+        reload: @escaping @MainActor (BibleLibraryModel) async -> Void = { _ in }
+    ) -> Task<Void, Never> {
         let generation = (generations[id] ?? 0) + 1
         generations[id] = generation
         downloads[id] = .downloading(0)
@@ -205,8 +289,6 @@ final class BibleLibraryModel {
             }
         }
 
-        // The entry the store downloads, remembered once it's installed.
-        let installing = entry(id)
         let task = Task { [weak self] in
             var outcome: DownloadState?
             var succeeded = false
@@ -218,17 +300,28 @@ final class BibleLibraryModel {
             } catch {
                 outcome = .failed(Self.message(for: error))
             }
-            guard let self, generation == self.generations[id] else { return }
+            // Cancelled or replaced by a newer download.
+            guard let self, generation == self.generations[id] else {
+                await abandon()
+                return
+            }
+            if succeeded {
+                do {
+                    try await finish(self)
+                } catch {
+                    succeeded = false
+                    outcome = .failed(Self.message(for: error))
+                }
+            }
+            if !succeeded { await abandon() }
             self.downloads[id] = outcome
             self.tasks[id] = nil
-            if succeeded, let installing {
-                await self.updates?.storage.pin(installing)
-            }
             let hadActive = self.activeVersionID != nil
             await self.refresh()
             if !hadActive, self.installedIDs.contains(id) {
                 self.activate(id)
             }
+            if succeeded { await reload(self) }
         }
         tasks[id] = task
         return task

@@ -110,6 +110,7 @@ struct BibleCatalogUpdatesTests {
     private struct Setup {
         let library: BibleLibraryModel
         let disk: FakeDisk
+        let staged: FakeDisk
         let storage: InMemoryCatalogStorage
     }
 
@@ -118,14 +119,28 @@ struct BibleCatalogUpdatesTests {
         sequence: Int = 1,
         installed: [String: String] = [:],
         storage: InMemoryCatalogStorage = InMemoryCatalogStorage(),
+        stagingStore: ((BibleCatalogEntry, FakeDisk) -> any LocalModelStoring)? = nil,
         fetch: @escaping @Sendable () async throws -> (catalog: Data, signature: Data)
     ) -> Setup {
         let disk = FakeDisk(installed: installed)
+        let staged = FakeDisk(installed: [:])
+        let makeStaged = stagingStore ?? { entry, staged in
+            RevisionStore(id: entry.id, revision: entry.manifest.revision, disk: staged)
+        }
         let library = BibleLibraryModel(
             catalog: builtIn,
             sequence: sequence,
             makeStore: { entry in RevisionStore(id: entry.id, revision: entry.manifest.revision, disk: disk) },
             updates: BibleCatalogUpdates(verifier: Self.verifier, storage: storage, fetch: fetch),
+            staging: BibleUpdateStaging(
+                makeStore: { entry in makeStaged(entry, staged) },
+                promote: { id in
+                    let revision = try #require(staged.revision(id))
+                    disk.install(id, revision)
+                    staged.remove(id)
+                },
+                discard: { id in staged.remove(id) }
+            ),
             defaults: InMemoryDefaults(),
             load: { entry, _ in
                 LoadedBible(
@@ -135,7 +150,7 @@ struct BibleCatalogUpdatesTests {
                 )
             }
         )
-        return Setup(library: library, disk: disk, storage: storage)
+        return Setup(library: library, disk: disk, staged: staged, storage: storage)
     }
 
     @Test
@@ -194,6 +209,133 @@ struct BibleCatalogUpdatesTests {
 
         #expect(offline.library.catalog.map(\.id) == ["kjv", "bsb"])
     }
+
+    // MARK: - Updates
+
+    /// BSB 1 installed and pinned, the remote catalog at BSB 2.
+    private func installedBSBWithRemoteRevision2(
+        stagingStore: ((BibleCatalogEntry, FakeDisk) -> any LocalModelStoring)? = nil
+    ) async throws -> Setup {
+        let storage = InMemoryCatalogStorage()
+        await storage.pin(try Self.entry("bsb"))
+        let remote = try Self.signed(Self.document(sequence: 2, [try Self.entry("kjv"), try Self.entry("bsb", revision: 2)]))
+        let setup = makeLibrary(
+            builtIn: [try Self.entry("kjv")],
+            installed: ["bsb": "bsb-1"],
+            storage: storage,
+            stagingStore: stagingStore
+        ) { remote }
+        await setup.library.updateCatalog()
+        return setup
+    }
+
+    @Test
+    func aNewerRevisionIsOfferedWhileTheInstalledOneStaysReadable() async throws {
+        let setup = try await installedBSBWithRemoteRevision2()
+
+        #expect(setup.library.availableUpdate("bsb")?.manifest.revision == "bsb-2")
+        #expect(setup.library.installedIDs == ["bsb"])
+        #expect(try await setup.library.bible("bsb").version.id == "bsb")
+        #expect(setup.library.availableUpdate("kjv") == nil, "Not installed")
+    }
+
+    @Test
+    func updatingSwapsInTheNewRevisionPinsItAndReloadsIt() async throws {
+        let setup = try await installedBSBWithRemoteRevision2()
+        final class Reloads { var ids: [String] = [] }
+        let reloads = Reloads()
+        setup.library.versionUpdated = { reloads.ids.append($0) }
+
+        await setup.library.update("bsb").value
+
+        #expect(setup.disk.revision("bsb") == "bsb-2")
+        #expect(setup.staged.revision("bsb") == nil)
+        #expect(setup.library.installedIDs == ["bsb"])
+        #expect(setup.library.activeVersionID == "bsb")
+        #expect(setup.library.entry("bsb")?.manifest.revision == "bsb-2")
+        #expect(await setup.storage.pinnedEntries().map(\.manifest.revision) == ["bsb-2"])
+        #expect(setup.library.availableUpdate("bsb") == nil)
+        #expect(setup.library.downloads["bsb"] == nil)
+        #expect(reloads.ids == ["bsb"])
+    }
+
+    @Test
+    func aFailedUpdateKeepsTheInstalledRevision() async throws {
+        let setup = try await installedBSBWithRemoteRevision2 { _, _ in FailingStore() }
+
+        await setup.library.update("bsb").value
+
+        #expect(setup.disk.revision("bsb") == "bsb-1")
+        #expect(setup.library.installedIDs == ["bsb"])
+        #expect(setup.library.entry("bsb")?.manifest.revision == "bsb-1")
+        #expect(await setup.storage.pinnedEntries().map(\.manifest.revision) == ["bsb-1"])
+        #expect(setup.library.availableUpdate("bsb") != nil, "Still offered")
+        guard case .failed = setup.library.downloads["bsb"] else {
+            Issue.record("Expected a failure message")
+            return
+        }
+    }
+
+    @Test
+    func aCancelledUpdateKeepsTheInstalledRevisionAndDiscardsTheDownload() async throws {
+        let setup = try await installedBSBWithRemoteRevision2 { entry, staged in
+            StallingStore(id: entry.id, revision: entry.manifest.revision, disk: staged)
+        }
+
+        let task = setup.library.update("bsb")
+        try await waitUntil { setup.staged.revision("bsb") != nil }
+        setup.library.cancel("bsb")
+        await task.value
+
+        #expect(setup.staged.revision("bsb") == nil)
+        #expect(setup.disk.revision("bsb") == "bsb-1")
+        #expect(setup.library.installedIDs == ["bsb"])
+        #expect(setup.library.downloads["bsb"] == nil)
+        #expect(setup.library.availableUpdate("bsb")?.manifest.revision == "bsb-2")
+    }
+
+    @Test
+    func noUpdateIsOfferedForTheSameRevision() async throws {
+        let storage = InMemoryCatalogStorage()
+        await storage.pin(try Self.entry("bsb"))
+        let remote = try Self.signed(Self.document(sequence: 2, [try Self.entry("bsb")]))
+        let setup = makeLibrary(builtIn: [try Self.entry("kjv")], installed: ["bsb": "bsb-1"], storage: storage) { remote }
+        await setup.library.updateCatalog()
+
+        #expect(setup.library.availableUpdate("bsb") == nil)
+        await setup.library.update("bsb").value
+        #expect(setup.disk.revision("bsb") == "bsb-1")
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        for _ in 0..<500 where !condition() {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(condition())
+    }
+}
+
+/// A download that always fails.
+nonisolated struct FailingStore: LocalModelStoring {
+    var directory: URL { URL(fileURLWithPath: "/tmp/fake-bibles/failing") }
+    func isInstalled() async -> Bool { false }
+    func download(progress: @escaping @Sendable (Double) -> Void) async throws { throw URLError(.networkConnectionLost) }
+    func delete() async throws {}
+}
+
+/// A download that writes its first file, then waits until cancelled.
+nonisolated struct StallingStore: LocalModelStoring {
+    let id: String
+    let revision: String
+    let disk: FakeDisk
+
+    var directory: URL { URL(fileURLWithPath: "/tmp/fake-bibles/stalling") }
+    func isInstalled() async -> Bool { false }
+    func download(progress: @escaping @Sendable (Double) -> Void) async throws {
+        disk.install(id, revision)
+        try await Task.sleep(for: .seconds(60))
+    }
+    func delete() async throws {}
 }
 
 /// Which revision of each version is "on disk", shared by the stores.

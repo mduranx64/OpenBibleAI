@@ -71,6 +71,9 @@ final class AppModel {
         self.library = library
         self.chatEngine = chatEngine
         self.chatStore = chatStore
+        library.versionUpdated = { [weak self] id in
+            await self?.reloadIfReading(id)
+        }
     }
 
     var session: Session? {
@@ -104,6 +107,12 @@ final class AppModel {
     func switchVersion(to id: String) async {
         guard id != session?.version.id, library.installedIDs.contains(id) else { return }
         library.activate(id)
+        await open(id)
+    }
+
+    /// A version was updated to a new revision: reopen it if it is being read.
+    private func reloadIfReading(_ id: String) async {
+        guard session?.version.id == id else { return }
         await open(id)
     }
 
