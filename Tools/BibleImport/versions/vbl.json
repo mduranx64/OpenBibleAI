@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "vbl",
+    "name": "Versión Biblia Libre",
+    "abbreviation": "VBL",
+    "language": "es",
+    "copyright": "© 2018-2020 Jonathan Gallagher y Shelly Barrios de Avila · CC BY-SA 4.0"
+  },
+  "source": "spavbl/spavbl_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/spavbl_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "es",
+  "expected_books": 66,
+  "expected_verses": 31086,
+  "skip_empty_verses": true
+}

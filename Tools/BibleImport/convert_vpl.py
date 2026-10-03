@@ -7,7 +7,9 @@ Reads the recipe (version metadata, source file under Tools/BibleImport/Source/,
 book-name table, expected counts) and writes `<output>/<id>/version.json`,
 `books.json` and `verses.json`. Scripture text is copied unchanged. With
 `--compare <verses.json>` it also reports verses missing on either side
-(versification differences), e.g. against the KJV.
+(versification differences), e.g. against the KJV. Recipe options:
+`skip_empty_verses` leaves out empty verse slots, and `canon_only` leaves
+out books outside the 66-book canon (an edition's deuterocanon).
 """
 
 import argparse
@@ -18,12 +20,14 @@ from pathlib import Path
 IMPORT_DIR = Path(__file__).resolve().parent
 
 
-def parse_verses(text, skip_empty=False):
+def parse_verses(text, skip_empty=False, canon=None):
     """Verses in file order. With `skip_empty`, verse slots without text
     (a source padded to another versification) are left out and returned
-    as the second value."""
+    as the second value. With `canon`, books outside it are left out and
+    returned as the third value."""
     verses = []
     skipped = []
+    dropped = set()
     seen = set()
 
     for line_number, line in enumerate(text.splitlines(), start=1):
@@ -36,6 +40,10 @@ def parse_verses(text, skip_empty=False):
 
         book_id, chapter, verse, verse_text = match.groups()
         chapter, verse = int(chapter), int(verse)
+
+        if canon is not None and book_id not in canon:
+            dropped.add(book_id)
+            continue
 
         if skip_empty and chapter > 0 and verse > 0 and not verse_text.strip():
             skipped.append((book_id, chapter, verse))
@@ -56,7 +64,7 @@ def parse_verses(text, skip_empty=False):
             "text": verse_text,
         })
 
-    return verses, skipped
+    return verses, skipped, sorted(dropped)
 
 
 def build_books(verses, names):
@@ -95,9 +103,12 @@ def main():
     source = IMPORT_DIR / "Source" / recipe["source"]
     names = json.loads((IMPORT_DIR / "books" / f"{recipe['book_names']}.json").read_text(encoding="utf-8"))
 
-    verses, skipped = parse_verses(
+    # `canon_only`: an edition's deuterocanonical/apocryphal books (TOB,
+    # 1MA, …) are left out; the app reads the 66-book canon.
+    verses, skipped, dropped = parse_verses(
         source.read_text(encoding="utf-8-sig"),
         skip_empty=recipe.get("skip_empty_verses", False),
+        canon=names.keys() if recipe.get("canon_only", False) else None,
     )
     books = build_books(verses, names)
 
@@ -113,6 +124,8 @@ def main():
     write_json(package / "books.json", books)
     write_json(package / "verses.json", verses)
     print(f"Wrote {len(verses)} verses across {len(books)} books to {package}")
+    if dropped:
+        print(f"Left out {len(dropped)} books outside the canon: {', '.join(dropped)}")
     if skipped:
         print(f"Skipped {len(skipped)} empty verse slots: " + ", ".join(f"{b} {c}:{v}" for b, c, v in skipped))
 

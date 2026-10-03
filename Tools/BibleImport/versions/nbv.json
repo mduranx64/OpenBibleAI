@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "nbv",
+    "name": "Biblica® Open Nueva Biblia Viva",
+    "abbreviation": "NBV",
+    "language": "es",
+    "copyright": "© 2006, 2008 Biblica, Inc. · CC BY-SA 4.0"
+  },
+  "source": "spaonbv/spaonbv_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/spaonbv_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "es",
+  "expected_books": 66,
+  "expected_verses": 29102,
+  "skip_empty_verses": true
+}

@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "blivre",
+    "name": "Bíblia Livre",
+    "abbreviation": "BLIVRE",
+    "language": "pt-BR",
+    "copyright": "© 2018 Diego Santos, Mario Sérgio e Marco Teles · CC BY 4.0"
+  },
+  "source": "porbr2018/porbr2018_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/porbr2018_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "pt",
+  "expected_books": 66,
+  "expected_verses": 31102,
+  "skip_empty_verses": true
+}

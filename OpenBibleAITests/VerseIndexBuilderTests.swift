@@ -19,12 +19,13 @@ import Testing
 ///   container (the sandboxed test host cannot write into the repository).
 /// - `TEST_RUNNER_OPENBIBLE_EVAL_RETRIEVAL=1` compares keyword, semantic and
 ///   hybrid retrieval on golden questions (English and Spanish) at 256 and 512
-///   dimensions and prints recall.
+///   dimensions (and 256 stored as int8, as packages ship) and prints recall.
 @MainActor
 struct VerseIndexBuilderTests {
     nonisolated private static let build = ProcessInfo.processInfo.environment["OPENBIBLE_BUILD_VERSE_INDEX"] == "1"
     nonisolated private static let evaluate = ProcessInfo.processInfo.environment["OPENBIBLE_EVAL_RETRIEVAL"] == "1"
     nonisolated private static let export = ProcessInfo.processInfo.environment["OPENBIBLE_EXPORT_VERSE_INDEX"] == "1"
+    nonisolated private static let requantize = ProcessInfo.processInfo.environment["OPENBIBLE_REQUANTIZE_INDEX"] == "1"
     nonisolated static let versionID = ProcessInfo.processInfo.environment["OPENBIBLE_VERSION"] ?? "kjv"
     nonisolated static var package: URL {
         RepositoryBibles.kjv.deletingLastPathComponent().appendingPathComponent(versionID, isDirectory: true)
@@ -92,19 +93,49 @@ struct VerseIndexBuilderTests {
     }
 
     /// `TEST_RUNNER_OPENBIBLE_EXPORT_VERSE_INDEX=1`: writes the package index
-    /// (truncated to the app's dimensions) next to the 512-d build; copy it
-    /// to `Bibles/<id>/embeddings.bin`.
+    /// (truncated to the app's dimensions, stored as int8) next to the 512-d
+    /// build; copy it to `Bibles/<id>/embeddings.bin`.
     @Test(.enabled(if: VerseIndexBuilderTests.export))
     func exportBundledIndex() throws {
         let full = try VerseVectorIndex(data: Data(contentsOf: Self.builtIndexURL))
         let bundled = try full.truncated(to: MLXTextEmbedder.defaultDimensions)
         let destination = Self.supportDirectory.appendingPathComponent("\(Self.versionID)-embeddings.bin")
-        let data = try VerseVectorIndex.encode(
-            header: bundled.header,
-            entries: (0..<bundled.header.count).map { bundled.entry(at: $0) }
-        )
+        let data = try bundled.encoded(as: .int8)
         try data.write(to: destination)
         print("\n=== OPENBIBLE BUNDLED INDEX ===\n\(destination.path)\nbytes: \(data.count)\n=== END ===\n")
+    }
+
+    /// `TEST_RUNNER_OPENBIBLE_REQUANTIZE_INDEX=1`: re-encodes every Float16
+    /// package index in `Bibles/` as int8 into `Application Support/
+    /// OpenBibleAI/Requantized/<id>-embeddings.bin` (copy them back to
+    /// `Bibles/<id>/embeddings.bin`), checking that search results agree.
+    @Test(.enabled(if: VerseIndexBuilderTests.requantize))
+    func requantizePackageIndexes() throws {
+        let output = Self.supportDirectory.appendingPathComponent("Requantized", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let packages = try FileManager.default.contentsOfDirectory(at: RepositoryBibles.root, includingPropertiesForKeys: nil)
+        var report: [String] = []
+        for package in packages.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            let url = package.appendingPathComponent(BibleVersionPackage.FileName.embeddings)
+            guard let data = try? Data(contentsOf: url), data.count > 8, data[4] == 1 else { continue }
+            let half = try VerseVectorIndex(data: data)
+            let int8 = try half.encoded(as: .int8)
+            let byte = try VerseVectorIndex(data: int8)
+
+            // Each stored vector as a query: the top 10 should barely change.
+            var overlap = 0
+            let rows = Array(stride(from: 0, to: half.header.count, by: max(1, half.header.count / 50)))
+            for row in rows {
+                let query = half.entry(at: row).1
+                let expected = Set(half.search(query, limit: 10).map(\.reference))
+                overlap += byte.search(query, limit: 10).filter { expected.contains($0.reference) }.count
+            }
+            let agreement = Double(overlap) / Double(rows.count * 10)
+            #expect(agreement >= 0.95, "\(package.lastPathComponent): \(agreement)")
+            try int8.write(to: output.appendingPathComponent("\(package.lastPathComponent)-embeddings.bin"))
+            report.append("\(package.lastPathComponent): \(data.count) → \(int8.count) bytes, top-10 agreement \(agreement)")
+        }
+        print("\n=== OPENBIBLE REQUANTIZED ===\n\(output.path)\n\(report.joined(separator: "\n"))\n=== END ===\n")
     }
 
     /// The app's runtime embedder must reproduce the bundled vectors, or
@@ -117,7 +148,8 @@ struct VerseIndexBuilderTests {
         let embedder = MLXTextEmbedder(directory: Self.embedderDirectory, dimensions: bundled.header.dimensions)
 
         var worst: Float = 1
-        for row in [0, 1_234, 15_000, 23_145, 31_101] {
+        let last = bundled.header.count - 1
+        for row in [0, 1_234, 15_000, 23_145, last].map({ min($0, last) }) {
             let (reference, stored) = bundled.entry(at: row)
             let verse = try await repository.verse(at: reference)
             let fresh = try await embedder.embedDocuments([verse.text])[0]
@@ -166,6 +198,7 @@ struct VerseIndexBuilderTests {
         let (repository, _, _) = try await loadBible()
         let index512 = try VerseVectorIndex(data: Data(contentsOf: Self.builtIndexURL))
         let index256 = try index512.truncated(to: 256)
+        let index256int8 = try VerseVectorIndex(data: index256.encoded(as: .int8))
         let embedder = try await embedder()
 
         func passages(_ ranked: [RankedVerse]) async throws -> [BiblePassage] {
@@ -179,11 +212,13 @@ struct VerseIndexBuilderTests {
             let query = try await embedder.embedQuery(golden.question)
             let semantic512 = index512.search(query, limit: 20)
             let semantic256 = index256.search(Array(query.prefix(256)), limit: 20)
+            let semantic256int8 = index256int8.search(Array(query.prefix(256)), limit: 20)
             let results: [(String, [RankedVerse])] = [
                 ("keyword", keyword),
                 ("semantic256", semantic256),
                 ("semantic512", semantic512),
                 ("hybrid256", RankFusion.reciprocalRank([keyword, semantic256], limit: 20)),
+                ("hybrid256int8", RankFusion.reciprocalRank([keyword, semantic256int8], limit: 20)),
                 ("hybrid512", RankFusion.reciprocalRank([keyword, semantic512], limit: 20)),
             ]
             var row = golden.question
@@ -195,7 +230,7 @@ struct VerseIndexBuilderTests {
             lines.append(row)
         }
         let total = Self.golden.count
-        let summary = ["keyword", "semantic256", "semantic512", "hybrid256", "hybrid512"]
+        let summary = ["keyword", "semantic256", "semantic512", "hybrid256", "hybrid256int8", "hybrid512"]
             .map { "\($0) \(hits[$0, default: 0])/\(total)" }.joined(separator: ", ")
         print("\n=== OPENBIBLE RETRIEVAL EVAL (question words only, no model keywords) ===\n\(lines.joined(separator: "\n"))\n\(summary)\n=== END ===\n")
         await embedder.unload()

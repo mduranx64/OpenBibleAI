@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "ojb",
+    "name": "The Orthodox Jewish Bible",
+    "abbreviation": "OJB",
+    "language": "en",
+    "copyright": "© 2002-2011, 2021, 2024 Artists for Israel International · CC BY 4.0"
+  },
+  "source": "engojb/engojb_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/engojb_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "en",
+  "expected_books": 66,
+  "expected_verses": 31165,
+  "skip_empty_verses": true
+}

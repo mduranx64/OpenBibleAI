@@ -1,45 +1,115 @@
-"""Print the pinned catalog entry and the GitHub release commands for
-version packages built by convert_vpl.py (plus embeddings.bin).
+"""Add version packages to the published catalog and stage their release assets.
 
 Usage:
-    python3 Tools/BibleImport/make_release.py Bibles/kjv [Bibles/rv1909 ...]
+    python3 Tools/BibleImport/make_release.py <id> [<id> ...]
 
-Each package is published as its own release, tagged `bible-<id>-<n>`, with
-the four package files as assets. Paste the Swift into
-OpenBibleAI/Features/BibleLibrary/BibleCatalogEntry+Published.swift and run the
-printed `gh` commands yourself (publishing is a manual step).
+For each `Bibles/<id>` package (built by convert_vpl.py plus embeddings.bin)
+this:
+
+- pins every file by size and SHA-256 under the package revision
+  `<id>-<n>` (`n` is the recipe's `package`, default 1). Files that shrink by
+  at least 5% are published compressed (raw DEFLATE, `<file>.zlib`) and pinned
+  twice: the archive as downloaded and the file as installed;
+- updates `Tools/BibleImport/catalog.json` (adds or replaces the entry and
+  increments `sequence`) and regenerates
+  `OpenBibleAI/Features/BibleLibrary/BibleCatalogEntry+Published.swift`;
+- stages the assets as `Tools/BibleImport/Release/<id>-<n>-<file>[.zlib]`
+  (ignored) and prints the `gh` commands to upload them to the shared
+  `bibles` release.
+
+Published assets are immutable: once a build pins `<id>-<n>`, changing the
+package means a new package number. The script refuses to re-pin an existing
+revision with different bytes. The catalog is signed and uploaded separately
+(the "Publish catalog" workflow, or `catalog_key.sh sign`).
 """
 
 import hashlib
 import json
+import shutil
 import sys
+import zlib
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+IMPORT_DIR = ROOT / "Tools" / "BibleImport"
+CATALOG = IMPORT_DIR / "catalog.json"
+STAGING = IMPORT_DIR / "Release"
+SWIFT = ROOT / "OpenBibleAI" / "Features" / "BibleLibrary" / "BibleCatalogEntry+Published.swift"
 
 FILES = ["version.json", "books.json", "verses.json", "embeddings.bin"]
 REPOSITORY = "mduranx64/OpenBibleAI"
-RELEASE_NUMBER = 1
+TAG = "bibles"
+MINIMUM_SAVING = 0.05
+
+
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def deflate(data):
+    """Raw DEFLATE, as Apple's NSData `.zlib` decompression expects."""
+    compressor = zlib.compressobj(9, zlib.DEFLATED, -15)
+    return compressor.compress(data) + compressor.flush()
+
+
+def load_catalog():
+    if CATALOG.exists():
+        return json.loads(CATALOG.read_text(encoding="utf-8"))
+    return {"schema": 1, "sequence": 0, "entries": []}
+
+
+def package_entry(version_id):
+    directory = ROOT / "Bibles" / version_id
+    recipe = json.loads((IMPORT_DIR / "versions" / f"{version_id}.json").read_text(encoding="utf-8"))
+    version = json.loads((directory / "version.json").read_text(encoding="utf-8"))
+    if version != recipe["version"]:
+        raise SystemExit(f"{directory}/version.json differs from its recipe")
+    revision = f"{version_id}-{recipe.get('package', 1)}"
+
+    files, assets = [], []
+    for name in FILES:
+        path = directory / name
+        if not path.exists():
+            raise SystemExit(f"{directory}: missing {name}")
+        data = path.read_bytes()
+        file = {"name": name, "size": len(data), "sha256": sha256(data)}
+        archive = deflate(data)
+        if len(archive) <= len(data) * (1 - MINIMUM_SAVING):
+            file["archive"] = {"size": len(archive), "sha256": sha256(archive)}
+            assets.append((f"{revision}-{name}.zlib", archive))
+        else:
+            assets.append((f"{revision}-{name}", data))
+        files.append(file)
+
+    entry = {
+        "version": version,
+        "manifest": {
+            "repository": REPOSITORY,
+            "revision": revision,
+            "files": files,
+            "host": {"gitHubRelease": {"tag": TAG}},
+        },
+    }
+    return entry, assets
 
 
 def swift_string(text):
     return json.dumps(text, ensure_ascii=False)
 
 
-def main(directories):
-    entries, commands = [], []
-    for directory in map(Path, directories):
-        version = json.loads((directory / "version.json").read_text(encoding="utf-8"))
-        missing = [name for name in FILES if not (directory / name).exists()]
-        if missing:
-            raise SystemExit(f"{directory}: missing {', '.join(missing)}")
+def swift_file(file):
+    archive = ""
+    if "archive" in file:
+        archive = (f', archive: .init(size: {file["archive"]["size"]:_}, '
+                   f'sha256: "{file["archive"]["sha256"]}")')
+    return (f'                .init(name: "{file["name"]}", size: {file["size"]:_}, '
+            f'sha256: "{file["sha256"]}"{archive}),')
 
-        tag = f"bible-{version['id']}-{RELEASE_NUMBER}"
-        files = []
-        for name in FILES:
-            data = (directory / name).read_bytes()
-            files.append(
-                f'            .init(name: "{name}", size: {len(data):_}, '
-                f'sha256: "{hashlib.sha256(data).hexdigest()}"),'
-            )
+
+def write_swift(catalog):
+    entries = []
+    for entry in catalog["entries"]:
+        version, manifest = entry["version"], entry["manifest"]
         entries.append("\n".join([
             "        published(",
             f"            id: {swift_string(version['id'])},",
@@ -47,22 +117,108 @@ def main(directories):
             f"            abbreviation: {swift_string(version['abbreviation'])},",
             f"            language: {swift_string(version['language'])},",
             f"            copyright: {swift_string(version['copyright'])},",
-            f"            tag: {swift_string(tag)},",
+            f"            revision: {swift_string(manifest['revision'])},",
             "            files: [",
-            *["    " + line for line in files],
+            *[swift_file(file) for file in manifest["files"]],
             "            ]",
             "        ),",
         ]))
-        assets = " ".join(str(directory / name) for name in FILES)
-        commands.append(
-            f'gh release create {tag} --repo {REPOSITORY} --title "{version["name"]} ({version["abbreviation"]})" '
-            f'--notes "{version["name"]}. {version["copyright"]}." {assets}'
-        )
+    SWIFT.write_text(f"""//
+//  BibleCatalogEntry+Published.swift
+//  OpenBibleAI
+//
+//  Generated by Tools/BibleImport/make_release.py from
+//  Tools/BibleImport/catalog.json. Do not edit by hand.
+//
 
-    print("// Catalog entries:\n")
-    print("\n".join(entries))
-    print("\n# Release commands (run manually):\n")
-    print("\n".join(commands))
+import BibleAI
+import BibleDomain
+
+extension BibleCatalogEntry {{
+    /// The built-in catalog's sequence; a signed remote catalog replaces it
+    /// only when its own sequence is at least this.
+    static let publishedSequence = {catalog["sequence"]}
+
+    /// Versions published as assets of the `{TAG}` release of this repository,
+    /// pinned by size and SHA-256 (see DEVELOPMENT.md). Only public-domain or
+    /// openly licensed texts are published.
+    static let published: [BibleCatalogEntry] = [
+{chr(10).join(entries)}
+    ]
+
+    private static func published(
+        id: String,
+        name: String,
+        abbreviation: String,
+        language: String,
+        copyright: String,
+        revision: String,
+        files: [ModelManifest.File]
+    ) -> BibleCatalogEntry {{
+        do {{
+            return BibleCatalogEntry(
+                version: try BibleVersion(id: id, name: name, abbreviation: abbreviation, languageCode: language, copyright: copyright),
+                manifest: ModelManifest(repository: "{REPOSITORY}", revision: revision, files: files, host: .gitHubRelease(tag: "{TAG}"))
+            )
+        }} catch {{
+            preconditionFailure("Invalid published Bible \\(id): \\(error)")
+        }}
+    }}
+}}
+""", encoding="utf-8")
+
+
+def release_notes(catalog):
+    lines = ["Bible version packages for OpenBibleAI. Each asset is pinned by SHA-256 in the app's catalog.", ""]
+    for entry in catalog["entries"]:
+        version = entry["version"]
+        lines.append(f"- **{version['name']}** ({version['abbreviation']}, {version['language']}): {version['copyright']}")
+    lines += ["", "Texts are published unchanged from their sources (see DEVELOPMENT.md, Bible versions and provenance)."]
+    return "\n".join(lines) + "\n"
+
+
+def main(version_ids):
+    catalog = load_catalog()
+    shutil.rmtree(STAGING, ignore_errors=True)
+    (STAGING / "assets").mkdir(parents=True)
+
+    for version_id in version_ids:
+        entry, assets = package_entry(version_id)
+        existing = next((e for e in catalog["entries"] if e["version"]["id"] == version_id), None)
+        if existing and existing["manifest"]["revision"] == entry["manifest"]["revision"]:
+            if existing != entry:
+                raise SystemExit(
+                    f"{version_id}: {entry['manifest']['revision']} is already published with other bytes; "
+                    "bump `package` in its recipe"
+                )
+            print(f"{version_id}: unchanged")
+            continue
+        if existing:
+            catalog["entries"][catalog["entries"].index(existing)] = entry
+        else:
+            catalog["entries"].append(entry)
+        for name, data in assets:
+            (STAGING / "assets" / name).write_bytes(data)
+        download = sum(f.get("archive", f)["size"] for f in entry["manifest"]["files"])
+        print(f"{version_id}: {entry['manifest']['revision']}, download {download:_} bytes")
+
+    catalog["sequence"] += 1
+    CATALOG.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_swift(catalog)
+    (STAGING / "NOTES.md").write_text(release_notes(catalog), encoding="utf-8")
+
+    print(f"\nCatalog sequence {catalog['sequence']}: {CATALOG.relative_to(ROOT)}, {SWIFT.relative_to(ROOT)}")
+    print("\n# Upload the assets (run manually; the first time, create the release):")
+    print(f"gh release view {TAG} --repo {REPOSITORY} >/dev/null 2>&1 || "
+          f"gh release create {TAG} --repo {REPOSITORY} --title \"Bible versions\" "
+          f"--notes-file {(STAGING / 'NOTES.md').relative_to(ROOT)}")
+    print(f"gh release edit {TAG} --repo {REPOSITORY} --notes-file {(STAGING / 'NOTES.md').relative_to(ROOT)}")
+    print(f"gh release upload {TAG} --repo {REPOSITORY} {(STAGING / 'assets').relative_to(ROOT)}/*")
+    print("\n# Then commit catalog.json and the Swift catalog and push; the Publish catalog workflow")
+    print("# verifies the assets, signs catalog.json and uploads it. Without the workflow:")
+    print("Tools/BibleImport/catalog_key.sh verify-assets Tools/BibleImport/catalog.json")
+    print("Tools/BibleImport/catalog_key.sh sign Tools/BibleImport/catalog.json")
+    print(f"gh release upload {TAG} --repo {REPOSITORY} --clobber Tools/BibleImport/catalog.json Tools/BibleImport/catalog.json.sig")
 
 
 if __name__ == "__main__":

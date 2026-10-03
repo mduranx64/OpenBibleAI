@@ -1,0 +1,46 @@
+# Verifies, signs and publishes the Bible catalog (Tools/BibleImport/catalog.json)
+# to the `bibles` release, so the app offers new versions without an update.
+#
+# Setup (once): create the `release` environment with Miguel as a required
+# reviewer, then store the signing key there:
+#   Tools/BibleImport/catalog_key.sh export-private | gh secret set CATALOG_SIGNING_KEY --env release
+# Package assets are built and uploaded from a Mac first (make_release.py);
+# this workflow refuses to sign a catalog whose assets aren't all published.
+name: Publish catalog
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [Tools/BibleImport/catalog.json]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-catalog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: macos-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify every pinned asset is published
+        run: Tools/BibleImport/catalog_key.sh verify-assets Tools/BibleImport/catalog.json
+
+      - name: Sign the catalog
+        env:
+          CATALOG_SIGNING_KEY: ${{ secrets.CATALOG_SIGNING_KEY }}
+        run: Tools/BibleImport/catalog_key.sh sign Tools/BibleImport/catalog.json
+
+      - name: Publish catalog.json and its signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload bibles --repo "$GITHUB_REPOSITORY" --clobber \
+            Tools/BibleImport/catalog.json Tools/BibleImport/catalog.json.sig

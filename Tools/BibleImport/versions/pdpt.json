@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "pdpt",
+    "name": "Palabra de Dios para ti",
+    "abbreviation": "PDPT",
+    "language": "es",
+    "copyright": "© 2020 Asociación Bíblica Latinoamericana · CC BY 4.0"
+  },
+  "source": "spapddpt/spapddpt_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/spapddpt_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "es",
+  "expected_books": 66,
+  "expected_verses": 31081,
+  "skip_empty_verses": true
+}

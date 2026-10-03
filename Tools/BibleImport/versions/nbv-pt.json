@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "nbv-pt",
+    "name": "Biblica® Open Nova Bíblia Viva",
+    "abbreviation": "NBV",
+    "language": "pt-BR",
+    "copyright": "© 2007, 2010 Biblica, Inc. · CC BY-SA 4.0"
+  },
+  "source": "poronbv/poronbv_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/poronbv_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "pt",
+  "expected_books": 66,
+  "expected_verses": 31105,
+  "skip_empty_verses": true
+}

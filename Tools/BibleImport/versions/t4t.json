@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "t4t",
+    "name": "Translation for Translators",
+    "abbreviation": "T4T",
+    "language": "en",
+    "copyright": "© 2008-2017 Ellis W. Deibler, Jr. · CC BY-SA 4.0"
+  },
+  "source": "eng-t4t/eng-t4t_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/eng-t4t_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "en",
+  "expected_books": 66,
+  "expected_verses": 30640,
+  "skip_empty_verses": true
+}

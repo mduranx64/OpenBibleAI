@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "bes",
+    "name": "La Biblia en Español Sencillo",
+    "abbreviation": "BES",
+    "language": "es",
+    "copyright": "© 2018, 2019 AudioBiblia.org / Irma Flores · CC BY 4.0"
+  },
+  "source": "spabes/spabes_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/spabes_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "es",
+  "expected_books": 66,
+  "expected_verses": 31102,
+  "skip_empty_verses": true
+}

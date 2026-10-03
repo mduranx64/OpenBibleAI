@@ -26,3 +26,14 @@ Packages/
 .DS_Store
 /Tools/BibleImport/Source/
 Design/
+## Bible release tooling: packages are built locally and published as release
+## assets (only the kjv and rv1909 test fixtures are versioned)
+Bibles/*
+!Bibles/kjv/
+!Bibles/rv1909/
+Tools/BibleImport/Release/
+Tools/BibleImport/.build/
+Tools/BibleImport/catalog.json.sig
+
+## Generated from Config/*.xcconfig by Tools/generate_build_settings.sh
+OpenBibleAI/Generated/

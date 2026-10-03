@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "msb",
+    "name": "Majority Standard Bible",
+    "abbreviation": "MSB",
+    "language": "en",
+    "copyright": "Public domain"
+  },
+  "source": "engmsb/engmsb_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/engmsb_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "en",
+  "expected_books": 66,
+  "expected_verses": 31098,
+  "skip_empty_verses": true
+}

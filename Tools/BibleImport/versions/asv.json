@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "asv",
+    "name": "American Standard Version (1901)",
+    "abbreviation": "ASV",
+    "language": "en",
+    "copyright": "Public domain"
+  },
+  "source": "eng-asv/eng-asv_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/eng-asv_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "en",
+  "expected_books": 66,
+  "expected_verses": 31086,
+  "skip_empty_verses": true
+}

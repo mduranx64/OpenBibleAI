@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "ulb",
+    "name": "Unlocked Literal Bible",
+    "abbreviation": "ULB",
+    "language": "en",
+    "copyright": "© 2017 Door43 World Missions Community · CC BY-SA 4.0"
+  },
+  "source": "engULB/engULB_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/engULB_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "en",
+  "expected_books": 66,
+  "expected_verses": 31078,
+  "skip_empty_verses": true
+}

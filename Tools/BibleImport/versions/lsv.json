@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "lsv",
+    "name": "Literal Standard Version",
+    "abbreviation": "LSV",
+    "language": "en",
+    "copyright": "© 2020 Covenant Press · CC BY-SA 4.0"
+  },
+  "source": "englsv/englsv_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/englsv_vpl.zip",
+  "license_checked": "2026-10-02",
+  "book_names": "en",
+  "expected_books": 66,
+  "expected_verses": 31104,
+  "skip_empty_verses": true
+}
