@@ -10,8 +10,10 @@ import Foundation
 ///
 /// Binary layout (little-endian): `"OBVI"`, `UInt32` version, `UInt32`
 /// header length, JSON `Header`, then one row per verse — `UInt8` book index
-/// into `Header.books`, `UInt16` chapter, `UInt16` verse — then
-/// `count × dimensions` Float16 values. Vectors are L2-normalised, so a dot
+/// into `Header.books`, `UInt16` chapter, `UInt16` verse — then the vectors:
+/// version 1 stores `count × dimensions` Float16 values; version 2 stores one
+/// `Float32` scale per verse, then `count × dimensions` `Int8` values
+/// (value × scale / 127), half the size. Vectors are L2-normalised, so a dot
 /// product with a normalised query is the cosine similarity.
 public struct VerseVectorIndex: Sendable {
     public struct Header: Codable, Equatable, Sendable {
@@ -34,6 +36,14 @@ public struct VerseVectorIndex: Sendable {
         }
     }
 
+    /// How vector values are stored.
+    public enum Precision: Sendable {
+        /// Version 1: 2 bytes per value.
+        case float16
+        /// Version 2: 1 byte per value plus a scale per verse.
+        case int8
+    }
+
     public enum FormatError: Error, Equatable, Sendable {
         case badMagic
         case unsupportedVersion(UInt32)
@@ -44,7 +54,6 @@ public struct VerseVectorIndex: Sendable {
     }
 
     private static let magic = Data("OBVI".utf8)
-    private static let version: UInt32 = 1
     private static let rowSize = 5
 
     public let header: Header
@@ -56,7 +65,7 @@ public struct VerseVectorIndex: Sendable {
     public init(data: Data) throws(FormatError) {
         guard data.count >= 12, data.prefix(4) == Self.magic else { throw .badMagic }
         let version = data.readUInt32(at: 4)
-        guard version == Self.version else { throw .unsupportedVersion(version) }
+        guard version == 1 || version == 2 else { throw .unsupportedVersion(version) }
         let headerLength = Int(data.readUInt32(at: 8))
         guard data.count >= 12 + headerLength,
               let header = try? JSONDecoder().decode(Header.self, from: data.subdata(in: 12..<(12 + headerLength))),
@@ -65,7 +74,8 @@ public struct VerseVectorIndex: Sendable {
 
         let rowsStart = 12 + headerLength
         let vectorsStart = rowsStart + header.count * Self.rowSize
-        let expected = vectorsStart + header.count * header.dimensions * 2
+        let values = header.count * header.dimensions
+        let expected = vectorsStart + (version == 1 ? values * 2 : header.count * 4 + values)
         guard data.count == expected else { throw .sizeMismatch }
 
         var references: [BibleReference] = []
@@ -83,13 +93,23 @@ public struct VerseVectorIndex: Sendable {
             references.append(reference)
         }
 
-        let halfs: [UInt16] = data.subdata(in: vectorsStart..<expected).withUnsafeBytes { raw in
-            Array(raw.bindMemory(to: UInt16.self)).map { UInt16(littleEndian: $0) }
-        }
-
         self.header = header
         self.references = references
-        self.vectors = Self.floats(fromHalfs: halfs)
+        if version == 1 {
+            let halfs: [UInt16] = data.subdata(in: vectorsStart..<expected).withUnsafeBytes { raw in
+                Array(raw.bindMemory(to: UInt16.self)).map { UInt16(littleEndian: $0) }
+            }
+            self.vectors = Self.floats(fromHalfs: halfs)
+        } else {
+            let scalesEnd = vectorsStart + header.count * 4
+            let scales: [Float] = data.subdata(in: vectorsStart..<scalesEnd).withUnsafeBytes { raw in
+                Array(raw.bindMemory(to: UInt32.self)).map { Float(bitPattern: UInt32(littleEndian: $0)) }
+            }
+            let quantized: [Int8] = data.subdata(in: scalesEnd..<expected).withUnsafeBytes { raw in
+                Array(raw.bindMemory(to: Int8.self))
+            }
+            self.vectors = Self.floats(fromQuantized: quantized, scales: scales, dimensions: header.dimensions)
+        }
     }
 
     // MARK: - Writing
@@ -98,7 +118,8 @@ public struct VerseVectorIndex: Sendable {
     /// (normalised here). `header.count` must match `entries.count`.
     public static func encode(
         header: Header,
-        entries: [(BibleReference, [Float])]
+        entries: [(BibleReference, [Float])],
+        precision: Precision = .float16
     ) throws(FormatError) -> Data {
         guard header.count == entries.count else { throw .countMismatch }
         guard entries.allSatisfy({ $0.1.count == header.dimensions }) else { throw .dimensionMismatch }
@@ -116,7 +137,7 @@ public struct VerseVectorIndex: Sendable {
         guard let headerData = try? JSONEncoder().encode(header) else { throw .corruptHeader }
 
         var data = Self.magic
-        data.appendUInt32(Self.version)
+        data.appendUInt32(precision == .float16 ? 1 : 2)
         data.appendUInt32(UInt32(headerData.count))
         data.append(headerData)
 
@@ -126,9 +147,20 @@ public struct VerseVectorIndex: Sendable {
             data.appendUInt16(UInt16(reference.verse))
         }
 
-        let normalised = entries.flatMap { normalised($0.1) }
-        for half in halfs(fromFloats: normalised) {
-            data.appendUInt16(half)
+        switch precision {
+        case .float16:
+            let normalised = entries.flatMap { normalised($0.1) }
+            for half in halfs(fromFloats: normalised) {
+                data.appendUInt16(half)
+            }
+        case .int8:
+            let rows = entries.map { quantized(normalised($0.1)) }
+            for row in rows {
+                data.appendUInt32(row.scale.bitPattern)
+            }
+            for row in rows {
+                data.append(contentsOf: row.values.map { UInt8(bitPattern: $0) })
+            }
         }
         return data
     }
@@ -137,6 +169,16 @@ public struct VerseVectorIndex: Sendable {
     public func entry(at row: Int) -> (BibleReference, [Float]) {
         let width = header.dimensions
         return (references[row], Array(vectors[(row * width)..<((row + 1) * width)]))
+    }
+
+    /// The same index stored with another precision (e.g. a Float16 index
+    /// re-encoded as int8).
+    public func encoded(as precision: Precision) throws(FormatError) -> Data {
+        let unannotated = Header(
+            model: header.model, revision: header.revision, dimensions: header.dimensions,
+            count: header.count, source: header.source
+        )
+        return try Self.encode(header: unannotated, entries: references.indices.map(entry(at:)), precision: precision)
     }
 
     /// A smaller index using the first `dimensions` values of each vector,
@@ -190,6 +232,26 @@ public struct VerseVectorIndex: Sendable {
         let length = sumOfSquares.squareRoot()
         guard length > 0 else { return vector }
         return vector.map { $0 / length }
+    }
+
+    /// Symmetric int8 quantization of one normalised vector: the largest
+    /// magnitude maps to ±127.
+    private static func quantized(_ vector: [Float]) -> (scale: Float, values: [Int8]) {
+        let largest = vector.map(abs).max() ?? 0
+        guard largest > 0 else { return (0, vector.map { _ in 0 }) }
+        return (largest, vector.map { Int8(($0 / largest * 127).rounded()) })
+    }
+
+    private static func floats(fromQuantized values: [Int8], scales: [Float], dimensions: Int) -> [Float] {
+        var output = [Float](repeating: 0, count: values.count)
+        for row in scales.indices {
+            let factor = scales[row] / 127
+            for column in 0..<dimensions {
+                let index = row * dimensions + column
+                output[index] = Float(values[index]) * factor
+            }
+        }
+        return output
     }
 
     /// Float16 bits → Float32 via vImage (works on Intel Macs, unlike `Float16`).

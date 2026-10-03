@@ -41,6 +41,53 @@ struct VerseVectorIndexTests {
         #expect(abs(ranked[0].score - 0.9988) < 0.01, "Float16 storage keeps cosine accurate")
     }
 
+    /// Deterministic pseudo-random vectors, like real embeddings (no zeros).
+    private func manyEntries(count: Int, dimensions: Int) throws -> [(BibleReference, [Float])] {
+        var seed: UInt64 = 42
+        func next() -> Float {
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            return Float(Int64(bitPattern: seed >> 11) % 2_000) / 1_000 - 1
+        }
+        return try (0..<count).map { row in
+            (try ref("PSA", row / 150 + 1, row % 150 + 1), (0..<dimensions).map { _ in next() })
+        }
+    }
+
+    @Test
+    func int8IndexIsHalfTheSizeAndRanksLikeFloat16() throws {
+        let entries = try manyEntries(count: 300, dimensions: 64)
+        let header = header(count: 300, dimensions: 64)
+        let halfData = try VerseVectorIndex.encode(header: header, entries: entries)
+        let byteData = try VerseVectorIndex.encode(header: header, entries: entries, precision: .int8)
+        let half = try VerseVectorIndex(data: halfData)
+        let byte = try VerseVectorIndex(data: byteData)
+
+        #expect(Double(byteData.count) < Double(halfData.count) * 0.6)
+        for row in [0, 77, 299] {
+            let (reference, stored) = half.entry(at: row)
+            let (sameReference, quantized) = byte.entry(at: row)
+            #expect(reference == sameReference)
+            let cosine = zip(stored, quantized).reduce(Float(0)) { $0 + $1.0 * $1.1 }
+            #expect(cosine > 0.999, "row \(row): \(cosine)")
+        }
+        for query in try manyEntries(count: 5, dimensions: 64).map(\.1) {
+            #expect(byte.search(query, limit: 5).map(\.reference) == half.search(query, limit: 5).map(\.reference))
+        }
+    }
+
+    @Test
+    func aFloat16IndexReencodesAsInt8() throws {
+        let half = try VerseVectorIndex(data: VerseVectorIndex.encode(header: header(count: 3), entries: entries()))
+
+        let byte = try VerseVectorIndex(data: half.encoded(as: .int8))
+
+        #expect(byte.header == half.header)
+        #expect(byte.search([0, 2, 0.1], limit: 3).map(\.reference) == half.search([0, 2, 0.1], limit: 3).map(\.reference))
+        #expect(throws: VerseVectorIndex.FormatError.sizeMismatch) {
+            try VerseVectorIndex(data: half.encoded(as: .int8).dropLast())
+        }
+    }
+
     @Test
     func truncationKeepsLeadingDimensionsAndRenormalises() throws {
         let index = try VerseVectorIndex(data: VerseVectorIndex.encode(header: header(count: 3), entries: entries()))
