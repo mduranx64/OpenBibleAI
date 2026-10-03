@@ -100,7 +100,8 @@ Every openly licensed complete Bible on eBible.org in English (22, with the KJV)
 - [ ] Request licenses: RVR1960 (American Bible Society for Sociedades Bíblicas Unidas) and a modern Almeida (Sociedade Bíblica do Brasil); add them through `add_version.sh` once granted.
 - [x] Live-check the chat in Spanish/Portuguese versions; recognize other languages' book names in citations (2026-10-03, `787c330`).
 - [ ] Chat quality found in that check: Apple's guardrail declines some Spanish/Portuguese answers mid-stream; English questions over a Portuguese text retrieve weakly; MLX 1.7B answers have factual errors and misspelt book names ("Colosés").
-- [ ] Keep the selected verse across version switches; check onboarding and comparison on iPhone/iPad.
+- [ ] Keep the selected verse across version switches.
+- [x] iPhone and iPad layouts (2026-10-03, `4ef1675`…`fcb8fad`): iPhone tabs (Read, Chat, Search, Library), iPad sidebar + reader + chat inspector, compact Compare/Manage Bibles/onboarding; checked in simulators. Real devices, VoiceOver and the MLX path on iPhone remain unchecked.
 - [ ] Later: Apple-Hosted Background Assets as the App Store host; catalog key rotation.
 
 ## 5. Release preparation
@@ -115,6 +116,7 @@ Acceptance criteria:
 - Select and test the intended release platforms; macOS results do not substitute for iOS/visionOS runs.
 - Review translation distribution requirements (each Bible version's license and the KJV's UK letters-patent qualification) for release territories, signing, packaging, and installation behavior.
 - Document remaining limitations and release/manual test evidence.
+- Fix the flaky `BibleCompareModelTests.aNewerLoadWinsOverAnOlderOne` (its two `async let` loads can start in either order).
 
 ## Milestone discipline
 

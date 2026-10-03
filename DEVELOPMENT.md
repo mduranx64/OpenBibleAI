@@ -15,7 +15,15 @@ swift --version
 
 Open `OpenBibleAI.xcworkspace` for the app and all three local packages. The project also opens directly through `OpenBibleAI.xcodeproj`. Its definition is `OpenBibleAI.xcodeproj/project.xcproj`; do not assume the older `project.pbxproj` filename or rewrite its format.
 
-The project declares iOS, macOS, and visionOS deployment settings at version 27.0. Only macOS was verified for this checkpoint. The desktop-oriented UI, Settings scene, and package platform declarations require separate validation before claiming another platform is supported in practice.
+The app target declares iOS 17, macOS 14 and visionOS 1 deployment targets (test targets 27.0), for iPhone, iPad, Mac and Vision (`TARGETED_DEVICE_FAMILY` 1,2,7). iOS code uses only iOS 17 APIs.
+
+### Layout per platform
+
+- **Mac (and visionOS):** a three-column `NavigationSplitView`: sidebar (reference/text search, books → chapter grid drill-down), reader, chat. Settings is the macOS Settings scene (a gear sheet on visionOS).
+- **iPhone, and iPad in compact width (narrow Split View/Slide Over):** a `TabView` with Read, Chat, Search and Library (`AppShell/BibleReaderView+Phone.swift`). Read is a `NavigationStack` (books → chapters → reader) with the version and Compare menus in the bar and an icon-only chapter bar. Selecting a verse shows an "Ask about …" button that opens the Chat tab; citations, sources and search results open the reader in the Read tab. Search is one `.searchable` field: input with a colon is a reference, otherwise a text search. Library switches the reading version, toggles compared versions, and links to Manage Bibles and AI Settings.
+- **iPad at regular width:** a two-column split (sidebar stack with search, books → chapters; the reader) with the chat in an `.inspector`, open by default and toggled from the toolbar, which also has Compare, the version menu and AI Settings (`AppShell/BibleReaderView+Pad.swift`).
+- `AppNavigation` (`AppShell/AppNavigation.swift`) holds the tab, the Read stack (`readPath`; the iPad sidebar uses it without the reader) and the inspector; `ContentView` owns it so it survives version switches and size-class changes. Selection stays in `BibleReaderNavigationModel`. The shared pieces (`BookListView`, `ChapterGridView`, `ChapterReaderContent`, `ChapterNavigationBar`, `TextSearchResultRows`) are in `BibleReader/BibleReaderComponents.swift`.
+- Compact width also changes Compare (versions stacked under each verse instead of columns), Manage Bibles (Delete by swipe or long press, without the confirmation the Mac shows) and onboarding (heading scrolls with the list, Start Reading pinned).
 
 The selected app icon is in `OpenBibleAI/Assets.xcassets/AppIcon.appiconset/` for iPhone, iPad, and Mac. visionOS selects the two-layer `OpenBibleAI/Assets.xcassets/AppIconVision.solidimagestack/` through SDK-specific `ASSETCATALOG_COMPILER_APPICON_NAME` settings. The source concept and an installed-icon size preview are in `Design/AppIconConcepts/`. Asset catalog compilation can verify both icon configurations independently of full app builds; see the dated results in `MEMORY.md`.
 
@@ -162,6 +170,17 @@ xcodebuild test \
   -destination 'platform=macOS' \
   -only-testing:OpenBibleAIUITests/ReferenceSearchUITests \
   CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
+```
+
+iPhone and iPad UI tests (`PhoneNavigationUITests`, `PadNavigationUITests`; each skips on the other idiom) run on simulators and attach screenshots to the result bundle (`xcrun xcresulttool export attachments --path <bundle> --output-path <dir>`). Book and verse rows are lazy, so tests filter books and use verses near the top. If `xcodebuild` hangs after the tests finish, add `-collect-test-diagnostics never`:
+
+```bash
+xcodebuild test \
+  -workspace OpenBibleAI.xcworkspace \
+  -scheme OpenBibleAIUITests \
+  -destination 'platform=iOS Simulator,name=iPhone 17e' \
+  -only-testing:OpenBibleAIUITests/PhoneNavigationUITests \
+  -collect-test-diagnostics never
 ```
 
 UI tests get their Bibles from `UITestBibleServer`: a 127.0.0.1 server in the (sandboxed, `ENABLE_INCOMING_NETWORK_CONNECTIONS`) test runner that serves `Bibles/kjv` plus `test-es`, test data made at run time from the KJV with Spanish book names. `launchForUITest(bibles:)` passes the server URL and pinned catalog in the launch environment; Debug builds then install through the real download path (`UITestBibles`, under `Application Support/OpenBibleAI/UITestBibles`). `.installed([...])` (default the KJV) pre-installs before the app starts, `.fresh` starts at onboarding. No internet is needed.
@@ -397,7 +416,8 @@ Record these independently of automated test results:
 6. Quit normally and relaunch after both sidebar chapter-grid selection and Previous/Next navigation (including a cross-book step such as Malachi 4 → Matthew 1). Restore book/chapter without automatically selecting a verse.
 7. Search `John 3:16`, `1 John 2:1`, and `Song of Solomon 1:2`; each opens the chapter, highlights the verse, and enables the AI panel. Invalid input, an unknown book, and `John 999:999` show feedback without changing the current chapter. Relaunch restores the searched book/chapter.
 8. First launch with nothing installed (or a fresh container): onboarding lists the published versions, suggests one for the system language, downloads with progress and Cancel, then Start Reading opens the reader. Switch versions from the toolbar menu (book and chapter stay), compare two or more versions in aligned columns, delete a version from Manage Bibles (not the one in use), and check the UI in Spanish and Portuguese.
-9. With an engine available (Apple Intelligence, or the downloaded model), ask a question, observe streaming, and test Stop/selection changes. On a device without Apple Intelligence, check the download, progress, cancel and delete flow. Keep this result separate from mocked provider tests.
+9. On iPhone (portrait and landscape) and iPad (landscape, portrait, Split View ⅓): every tab and screen fits without sideways scrolling; books → chapter → verse → Ask about → Chat; a citation returns to Read; switching size class keeps the chapter and chat; large Dynamic Type and Dark Mode stay readable.
+10. With an engine available (Apple Intelligence, or the downloaded model), ask a question, observe streaming, and test Stop/selection changes. On a device without Apple Intelligence, check the download, progress, cancel and delete flow. Keep this result separate from mocked provider tests.
 
 ## Troubleshooting and delivery
 
