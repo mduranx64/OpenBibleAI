@@ -121,7 +121,7 @@ struct ModelDownloadControls: View {
         case let .downloading(fraction):
             VStack(alignment: .leading, spacing: 6) {
                 ProgressView(value: fraction) {
-                    Text("Downloading… \(Int(fraction * 100))%")
+                    Text("Downloading… \(fraction.formatted(.percent.precision(.fractionLength(0))))")
                 }
                 .accessibilityIdentifier("modelDownloadProgress")
                 Button("Cancel Download") { engine.cancelDownload() }

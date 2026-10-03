@@ -9,7 +9,7 @@ struct SemanticSearchControls: View {
         case let .downloading(fraction):
             VStack(alignment: .leading, spacing: 6) {
                 ProgressView(value: fraction) {
-                    Text("Downloading search model… \(Int(fraction * 100))%")
+                    Text("Downloading search model… \(fraction.formatted(.percent.precision(.fractionLength(0))))")
                 }
                 .accessibilityIdentifier("searchModelDownloadProgress")
                 Button("Cancel Download") { model.cancelDownload() }

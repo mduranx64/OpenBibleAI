@@ -874,34 +874,34 @@
         }
       }
     },
-    "Downloading search model… %lld%%" : {
+    "Downloading search model… %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descargando modelo de búsqueda… %lld %%"
+            "value" : "Descargando modelo de búsqueda… %@"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Baixando modelo de busca… %lld%%"
+            "value" : "Baixando modelo de busca… %@"
           }
         }
       }
     },
-    "Downloading… %lld%%" : {
+    "Downloading… %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descargando… %lld %%"
+            "value" : "Descargando… %@"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Baixando… %lld%%"
+            "value" : "Baixando… %@"
           }
         }
       }
