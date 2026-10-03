@@ -92,11 +92,13 @@ Every openly licensed complete Bible on eBible.org in English (22, with the KJV)
 
 - [x] Signing key generated (Keychain), `BIBLE_CATALOG_PUBLIC_KEY` set locally, `CATALOG_SIGNING_KEY` secret in the `release` environment (Miguel as reviewer, `main` only). Miguel still needs to back the private key up.
 - [x] `bibles` release with 116 verified assets and the signed catalog (sequence 1, Publish catalog run 37129793167); live install of KJV, BSB and Bíblia Livre; `bible-kjv-1` and `bible-rv1909-1` deleted.
-- [ ] Live-check a remote catalog update in the app (publish sequence 2 with a new version).
-- [ ] "Update available" for an installed version whose catalog entry moved to a new package revision.
-- [ ] Deuterocanon support (Douay-Rheims, WEB Catholic); revisit draft texts (spablm, spabll, porbrbsl) when finalized.
+- [ ] Live-check a remote catalog update in the app: publish catalog sequence 2 (adds the Douay-Rheims; assets staged by `make_release.py dra`).
+- [x] "Update available" for an installed version whose catalog entry moved to a new package revision (2026-10-03, `1f1f812`). Live check against a test release still open.
+- [x] Deuterocanon support and the Douay-Rheims (2026-10-03, `4676935`; not yet published). WEB Catholic blocked: eBible's VPL has no Genesis.
+- [ ] Revisit draft texts (spablm, spabll, porbrbsl) when finalized; WEB Catholic once its VPL includes Genesis.
 - [ ] Request licenses: RVR1960 (American Bible Society for Sociedades Bíblicas Unidas) and a modern Almeida (Sociedade Bíblica do Brasil); add them through `add_version.sh` once granted.
-- [ ] Live-check the chat in Spanish/Portuguese versions; recognize English book names in citations while reading another language.
+- [x] Live-check the chat in Spanish/Portuguese versions; recognize other languages' book names in citations (2026-10-03, `787c330`).
+- [ ] Chat quality found in that check: Apple's guardrail declines some Spanish/Portuguese answers mid-stream; English questions over a Portuguese text retrieve weakly; MLX 1.7B answers have factual errors and misspelt book names ("Colosés").
 - [ ] Keep the selected verse across version switches; check onboarding and comparison on iPhone/iPad.
 - [ ] Later: Apple-Hosted Background Assets as the App Store host; catalog key rotation.
 
