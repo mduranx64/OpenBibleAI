@@ -12,7 +12,7 @@ import BibleDomain
 extension BibleCatalogEntry {
     /// The built-in catalog's sequence; a signed remote catalog replaces it
     /// only when its own sequence is at least this.
-    static let publishedSequence = 2
+    static let publishedSequence = 3
 
     /// Versions published as assets of the `bibles` release of this repository,
     /// pinned by size and SHA-256 (see DEVELOPMENT.md). Only public-domain or
@@ -436,6 +436,20 @@ extension BibleCatalogEntry {
                 .init(name: "books.json", size: 5_872, sha256: "57b81d6e7506ac3980c991bde70b76553633b1c9acb32b4dc255563f4d4706ef", archive: .init(size: 916, sha256: "603f70fc7fe2e9c6ba18147c3fb687ce2a0d74d6124d89008bf448832e87e361")),
                 .init(name: "verses.json", size: 7_525_010, sha256: "3c53cf20cc1eaafe615bae90bb380002db6146f315f633513a621ba3cc9b4cd5", archive: .init(size: 1_644_240, sha256: "a4748d459a2b1925d11e48c90d6b2450254a9d8755404f06b006a3868357b338")),
                 .init(name: "embeddings.bin", size: 9_490_592, sha256: "e57696ef59ce69c63e450449c8da2a7ad0aa70776f861cda2861ca64020d460c", archive: .init(size: 8_479_747, sha256: "a92d4ecbc7825c075fd7ee0a14b1599aac8ff15e95304dec71610076c8c37d04")),
+            ]
+        ),
+        published(
+            id: "webbe-dc",
+            name: "World English Bible British Edition with Deuterocanon",
+            abbreviation: "WEBBE-DC",
+            language: "en",
+            copyright: "Public domain",
+            revision: "webbe-dc-1",
+            files: [
+                .init(name: "version.json", size: 172, sha256: "47569e0817d54913c660c2ed31e9072e48db6685de2c64dabf714ddd9ad5b692", archive: .init(size: 129, sha256: "5cf648951c1bde1bedfd5b5a8c0b275f07c1dd5368445ab0d525c0f971c13a41")),
+                .init(name: "books.json", size: 5_872, sha256: "4322babccfd2c84a1e1ce65696f38ba34482d52d5fc917214807973e26b30313", archive: .init(size: 916, sha256: "afb5564ad7edcb96fe2e69aea99c30920a48562d448854f5b8dada42bd0cb0de")),
+                .init(name: "verses.json", size: 7_445_959, sha256: "1780f03f6253fc6dfeefa815302500354fda5c8ada29d3704e5d4ebdacbc6003", archive: .init(size: 1_628_976, sha256: "3d854e31129ad35fd3ba159bb2c8bf914f6932d3abeecb1ad7cc66f8392a0bd6")),
+                .init(name: "embeddings.bin", size: 9_376_112, sha256: "d1531e4ac65dfe3def01dd943c99fc7b2a3341f0dadd0d95d5382840a03a260e", archive: .init(size: 8_361_360, sha256: "6479f902cf487eecbc043b20d45fb69a0aec75b1ebbaae932ee1b56c569eda1d")),
             ]
         ),
     ]

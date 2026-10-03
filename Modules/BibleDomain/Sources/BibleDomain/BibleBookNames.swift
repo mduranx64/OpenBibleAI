@@ -5,7 +5,8 @@
 
 /// Book names by publisher book ID, as in the import tool's tables
 /// (`Tools/BibleImport/books/<language>.json`); English also names the
-/// deuterocanonical books of Catholic editions. Generated answers often cite
+/// deuterocanonical books of Catholic editions (Greek Esther and Daniel,
+/// `ESG`/`DNG`, are named like the books they replace). Generated answers often cite
 /// a name from another language than the version's ("John" or "Juan" while
 /// reading João), so citations accept every name in `aliases`. No name means
 /// different books in different languages (`BibleBookNamesTests`).
@@ -79,13 +80,13 @@ public enum BibleBookNames {
         "REV": "Revelation",
         "TOB": "Tobit",
         "JDT": "Judith",
-        "ESG": "Esther (Greek)",
+        "ESG": "Esther",
         "1MA": "1 Maccabees",
         "2MA": "2 Maccabees",
         "WIS": "Wisdom",
         "SIR": "Sirach",
         "BAR": "Baruch",
-        "DNG": "Daniel (Greek)",
+        "DNG": "Daniel",
     ]
 
     public static let spanish: [String: String] = [

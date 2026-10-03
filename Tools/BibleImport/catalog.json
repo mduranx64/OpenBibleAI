@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sequence": 2,
+  "sequence": 3,
   "entries": [
     {
       "version": {
@@ -1672,6 +1672,62 @@
             "archive": {
               "size": 8479747,
               "sha256": "a92d4ecbc7825c075fd7ee0a14b1599aac8ff15e95304dec71610076c8c37d04"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "webbe-dc",
+        "name": "World English Bible British Edition with Deuterocanon",
+        "abbreviation": "WEBBE-DC",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "webbe-dc-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 172,
+            "sha256": "47569e0817d54913c660c2ed31e9072e48db6685de2c64dabf714ddd9ad5b692",
+            "archive": {
+              "size": 129,
+              "sha256": "5cf648951c1bde1bedfd5b5a8c0b275f07c1dd5368445ab0d525c0f971c13a41"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5872,
+            "sha256": "4322babccfd2c84a1e1ce65696f38ba34482d52d5fc917214807973e26b30313",
+            "archive": {
+              "size": 916,
+              "sha256": "afb5564ad7edcb96fe2e69aea99c30920a48562d448854f5b8dada42bd0cb0de"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 7445959,
+            "sha256": "1780f03f6253fc6dfeefa815302500354fda5c8ada29d3704e5d4ebdacbc6003",
+            "archive": {
+              "size": 1628976,
+              "sha256": "3d854e31129ad35fd3ba159bb2c8bf914f6932d3abeecb1ad7cc66f8392a0bd6"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 9376112,
+            "sha256": "d1531e4ac65dfe3def01dd943c99fc7b2a3341f0dadd0d95d5382840a03a260e",
+            "archive": {
+              "size": 8361360,
+              "sha256": "6479f902cf487eecbc043b20d45fb69a0aec75b1ebbaae932ee1b56c569eda1d"
             }
           }
         ],

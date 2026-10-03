@@ -23,8 +23,10 @@ struct BibleBookNamesTests {
     func theTablesAreTheImportTables() throws {
         let english = try Self.table("en")
         #expect(BibleBookNames.english.filter { english[$0.key] != nil } == english)
-        let catholic = try Self.table("en-catholic")
-        #expect(BibleBookNames.english.filter { catholic[$0.key] != nil } == catholic)
+        for name in ["en-catholic", "en-catholic-greek"] {
+            let catholic = try Self.table(name)
+            #expect(BibleBookNames.english.filter { catholic[$0.key] != nil } == catholic, "\(name)")
+        }
         #expect(BibleBookNames.spanish == (try Self.table("es")))
         #expect(BibleBookNames.portuguese == (try Self.table("pt")))
     }

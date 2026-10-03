@@ -1,0 +1,17 @@
+{
+  "version": {
+    "id": "webbe-dc",
+    "name": "World English Bible British Edition with Deuterocanon",
+    "abbreviation": "WEBBE-DC",
+    "language": "en",
+    "copyright": "Public domain"
+  },
+  "source": "eng-webbe/eng-webbe_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/eng-webbe_vpl.zip",
+  "license_checked": "2026-10-03",
+  "book_names": "en-catholic-greek",
+  "expected_books": 73,
+  "expected_verses": 35379,
+  "skip_empty_verses": true,
+  "canon_only": true
+}
