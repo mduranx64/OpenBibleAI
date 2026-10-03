@@ -6,24 +6,45 @@
 import Foundation
 
 /// A download pinned to one revision, with the size and SHA-256 of every
-/// file: a model on Hugging Face (`repository` at a commit) or the assets of a
-/// GitHub release (`repository` at a tag), such as a Bible version package.
-public struct ModelManifest: Equatable, Sendable {
-    public struct File: Equatable, Sendable {
+/// file: a model on Hugging Face (`repository` at a commit) or assets of a
+/// GitHub release, such as a Bible version package (`revision` names the
+/// package, e.g. "kjv-1", and prefixes its assets in the shared release).
+public struct ModelManifest: Equatable, Sendable, Codable {
+    public struct File: Equatable, Sendable, Codable {
         public let name: String
+        /// Size and SHA-256 of the installed file.
+        public let size: Int64
+        public let sha256: String
+        /// When set, the file is downloaded compressed (raw DEFLATE, asset
+        /// `<name>.zlib`) and decompressed on install.
+        public let archive: Archive?
+
+        public init(name: String, size: Int64, sha256: String, archive: Archive? = nil) {
+            self.name = name
+            self.size = size
+            self.sha256 = sha256
+            self.archive = archive
+        }
+
+        /// Bytes transferred to install the file.
+        public var downloadSize: Int64 { archive?.size ?? size }
+    }
+
+    /// The compressed form of a file, as published.
+    public struct Archive: Equatable, Sendable, Codable {
         public let size: Int64
         public let sha256: String
 
-        public init(name: String, size: Int64, sha256: String) {
-            self.name = name
+        public init(size: Int64, sha256: String) {
             self.size = size
             self.sha256 = sha256
         }
     }
 
-    public enum Host: Equatable, Sendable {
+    public enum Host: Equatable, Sendable, Codable {
         case huggingFace
-        case gitHubRelease
+        /// Assets `<revision>-<file>` of the release `tag` of `repository`.
+        case gitHubRelease(tag: String)
         /// `<base>/<revision>/<file>`, e.g. a local server in UI tests.
         case baseURL(URL)
     }
@@ -40,18 +61,25 @@ public struct ModelManifest: Equatable, Sendable {
         self.host = host
     }
 
+    /// Bytes on disk once installed.
     public var totalBytes: Int64 {
         files.reduce(0) { $0 + $1.size }
     }
 
-    func url(for file: File) -> URL {
-        switch host {
+    /// Bytes transferred to install (smaller when files are compressed).
+    public var downloadBytes: Int64 {
+        files.reduce(0) { $0 + $1.downloadSize }
+    }
+
+    public func url(for file: File) -> URL {
+        let name = file.archive == nil ? file.name : "\(file.name).zlib"
+        return switch host {
         case .huggingFace:
-            URL(string: "https://huggingface.co/\(repository)/resolve/\(revision)/\(file.name)")!
-        case .gitHubRelease:
-            URL(string: "https://github.com/\(repository)/releases/download/\(revision)/\(file.name)")!
+            URL(string: "https://huggingface.co/\(repository)/resolve/\(revision)/\(name)")!
+        case let .gitHubRelease(tag):
+            URL(string: "https://github.com/\(repository)/releases/download/\(tag)/\(revision)-\(name)")!
         case let .baseURL(base):
-            base.appendingPathComponent(revision).appendingPathComponent(file.name)
+            base.appendingPathComponent(revision).appendingPathComponent(name)
         }
     }
 }

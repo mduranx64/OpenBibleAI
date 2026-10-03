@@ -39,11 +39,78 @@ struct LocalModelStoreTests {
         let model = ModelManifest(repository: "org/model", revision: "abc", files: [file])
         #expect(model.url(for: file).absoluteString == "https://huggingface.co/org/model/resolve/abc/verses.json")
 
-        let release = ModelManifest(repository: "owner/repo", revision: "bible-kjv-1", files: [file], host: .gitHubRelease)
-        #expect(release.url(for: file).absoluteString == "https://github.com/owner/repo/releases/download/bible-kjv-1/verses.json")
+        let release = ModelManifest(repository: "owner/repo", revision: "kjv-1", files: [file], host: .gitHubRelease(tag: "bibles"))
+        #expect(release.url(for: file).absoluteString == "https://github.com/owner/repo/releases/download/bibles/kjv-1-verses.json")
+
+        let compressed = ModelManifest.File(name: "verses.json", size: 10, sha256: "", archive: .init(size: 4, sha256: ""))
+        #expect(release.url(for: compressed).absoluteString == "https://github.com/owner/repo/releases/download/bibles/kjv-1-verses.json.zlib")
 
         let local = ModelManifest(repository: "", revision: "kjv", files: [file], host: .baseURL(URL(string: "http://127.0.0.1:8080")!))
         #expect(local.url(for: file).absoluteString == "http://127.0.0.1:8080/kjv/verses.json")
+    }
+
+    /// Raw DEFLATE, as `make_release.py` publishes (zlib with wbits -15).
+    private static func deflate(_ data: Data) throws -> Data {
+        try (data as NSData).compressed(using: .zlib) as Data
+    }
+
+    @Test
+    func compressedFilesAreVerifiedAndDecompressedOnInstall() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let verses = Data(String(repeating: "In the beginning God created the heaven and the earth. ", count: 200).utf8)
+        let archive = try Self.deflate(verses)
+        let manifest = ModelManifest(
+            repository: "owner/repo", revision: "kjv-1",
+            files: [.init(name: "verses.json", size: Int64(verses.count), sha256: Self.sha(verses),
+                          archive: .init(size: Int64(archive.count), sha256: Self.sha(archive)))],
+            host: .gitHubRelease(tag: "bibles")
+        )
+        #expect(manifest.downloadBytes < manifest.totalBytes / 10)
+        let downloader = FakeModelDownloader(files: ["kjv-1-verses.json.zlib": archive])
+        let store = LocalModelStore(manifest: manifest, directory: directory, downloader: downloader)
+        let progress = ProgressRecorder()
+
+        try await store.download { progress.record($0) }
+
+        #expect(await store.isInstalled())
+        #expect(try Data(contentsOf: directory.appendingPathComponent("verses.json")) == verses)
+        #expect(progress.values.last == 1)
+    }
+
+    @Test
+    func aCorruptArchiveIsRejectedWithoutInstallingAFile() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let verses = Data("verses".utf8)
+        let archive = try Self.deflate(verses)
+        let manifest = ModelManifest(
+            repository: "owner/repo", revision: "kjv-1",
+            files: [.init(name: "verses.json", size: Int64(verses.count), sha256: Self.sha(verses),
+                          archive: .init(size: Int64(archive.count), sha256: String(repeating: "0", count: 64)))],
+            host: .gitHubRelease(tag: "bibles")
+        )
+        let store = LocalModelStore(
+            manifest: manifest, directory: directory,
+            downloader: FakeModelDownloader(files: ["kjv-1-verses.json.zlib": archive])
+        )
+
+        await #expect(throws: LocalModelStore.StoreError.checksumMismatch("verses.json")) {
+            try await store.download { _ in }
+        }
+        #expect(await store.isInstalled() == false)
+        #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("verses.json").path))
+    }
+
+    @Test
+    func manifestsRoundTripThroughJSON() throws {
+        let manifest = ModelManifest(
+            repository: "owner/repo", revision: "kjv-1",
+            files: [.init(name: "verses.json", size: 10, sha256: "a", archive: .init(size: 4, sha256: "b"))],
+            host: .gitHubRelease(tag: "bibles")
+        )
+        let decoded = try JSONDecoder().decode(ModelManifest.self, from: JSONEncoder().encode(manifest))
+        #expect(decoded == manifest)
     }
 
     private func temporaryDirectory() -> URL {

@@ -7,7 +7,8 @@ import CryptoKit
 import Foundation
 
 /// Downloads a pinned model into an app-owned directory and verifies every
-/// file's SHA-256. The model counts as installed only after all files verify
+/// file's SHA-256 (and, for a file published compressed, the archive's
+/// before decompressing it). The model counts as installed only after all files verify
 /// (a completion marker is written last), so a partial download is never
 /// used. Verified files are kept, so an interrupted download resumes.
 public actor LocalModelStore: LocalModelStoring {
@@ -67,19 +68,28 @@ public actor LocalModelStore: LocalModelStoring {
             throw StoreError.insufficientSpace(required: required, available: available)
         }
 
-        let total = Double(max(manifest.totalBytes, 1))
-        var completed = manifest.files.filter { verified.contains($0.name) }.reduce(0) { $0 + $1.size }
+        let total = Double(max(manifest.downloadBytes, 1))
+        var completed = manifest.files.filter { verified.contains($0.name) }.reduce(0) { $0 + $1.downloadSize }
         progress(Double(completed) / total)
 
         for file in remaining {
             try Task.checkCancellation()
             let base = completed
             let temporary = try await downloader.download(manifest.url(for: file)) { written in
-                progress(Double(base + min(written, file.size)) / total)
+                progress(Double(base + min(written, file.downloadSize)) / total)
             }
             let destination = directory.appendingPathComponent(file.name)
             try? fileManager.removeItem(at: destination)
-            try fileManager.moveItem(at: temporary, to: destination)
+
+            if let archive = file.archive {
+                defer { try? fileManager.removeItem(at: temporary) }
+                guard try await Self.sha256(of: temporary) == archive.sha256 else {
+                    throw StoreError.checksumMismatch(file.name)
+                }
+                try await Self.inflate(temporary, to: destination)
+            } else {
+                try fileManager.moveItem(at: temporary, to: destination)
+            }
 
             guard try await Self.sha256(of: destination) == file.sha256 else {
                 try? fileManager.removeItem(at: destination)
@@ -87,7 +97,7 @@ public actor LocalModelStore: LocalModelStoring {
             }
             verified.insert(file.name)
             saveVerified(verified)
-            completed += file.size
+            completed += file.downloadSize
             progress(Double(completed) / total)
         }
 
@@ -138,6 +148,14 @@ public actor LocalModelStore: LocalModelStoring {
             hasher.update(data: chunk)
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Decompresses a raw-DEFLATE archive (published files are a few MB, so
+    /// in memory), off the caller's actor.
+    @concurrent
+    private static func inflate(_ archive: URL, to destination: URL) async throws {
+        let compressed = try Data(contentsOf: archive) as NSData
+        try (compressed.decompressed(using: .zlib) as Data).write(to: destination)
     }
 
     private static func systemAvailableCapacity(near directory: URL) -> Int64? {
