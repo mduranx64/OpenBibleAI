@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "sequence": 1,
+  "sequence": 2,
   "entries": [
     {
       "version": {
@@ -1616,6 +1616,62 @@
             "archive": {
               "size": 7381460,
               "sha256": "8e6aade0ad58aa1953892c44a7bcc7658cd16a95ca6968f48e4aed7be052ddf8"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "dra",
+        "name": "Douay-Rheims 1899 American Edition",
+        "abbreviation": "DRA",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "dra-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 143,
+            "sha256": "dc6e98770af6d83697b270c632523fab953bd95ad70e8d696729c5a5873accdc",
+            "archive": {
+              "size": 114,
+              "sha256": "63cde5fc8866999453a209a7f2e64ed4bc49f5f1d8bf61149f54bc9818056031"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5872,
+            "sha256": "57b81d6e7506ac3980c991bde70b76553633b1c9acb32b4dc255563f4d4706ef",
+            "archive": {
+              "size": 916,
+              "sha256": "603f70fc7fe2e9c6ba18147c3fb687ce2a0d74d6124d89008bf448832e87e361"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 7525010,
+            "sha256": "3c53cf20cc1eaafe615bae90bb380002db6146f315f633513a621ba3cc9b4cd5",
+            "archive": {
+              "size": 1644240,
+              "sha256": "a4748d459a2b1925d11e48c90d6b2450254a9d8755404f06b006a3868357b338"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 9490592,
+            "sha256": "e57696ef59ce69c63e450449c8da2a7ad0aa70776f861cda2861ca64020d460c",
+            "archive": {
+              "size": 8479747,
+              "sha256": "a92d4ecbc7825c075fd7ee0a14b1599aac8ff15e95304dec71610076c8c37d04"
             }
           }
         ],

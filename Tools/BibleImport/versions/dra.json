@@ -1,0 +1,16 @@
+{
+  "version": {
+    "id": "dra",
+    "name": "Douay-Rheims 1899 American Edition",
+    "abbreviation": "DRA",
+    "language": "en",
+    "copyright": "Public domain"
+  },
+  "source": "engDRA/engDRA_vpl.txt",
+  "source_url": "https://eBible.org/Scriptures/engDRA_vpl.zip",
+  "license_checked": "2026-10-03",
+  "book_names": "en-catholic",
+  "expected_books": 73,
+  "expected_verses": 35811,
+  "skip_empty_verses": true
+}

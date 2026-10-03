@@ -25,13 +25,18 @@ struct BibleBookTests {
     }
     
     @Test(arguments: [
-        (1, BibleBook.Testament.old),
-        (39, .old),
-        (40, .new),
-        (66, .new)
+        ("GEN", 1, BibleBook.Testament.old),
+        ("MAL", 39, .old),
+        ("MAT", 40, .new),
+        ("REV", 66, .new),
+        // A Catholic edition: deuterocanonical books in the Old Testament,
+        // so the New Testament starts later in canonical order.
+        ("TOB", 17, .old),
+        ("2MA", 46, .old),
+        ("MAT", 47, .new)
     ])
-    func testamentFollowsCanonicalOrder(order: Int, expected: BibleBook.Testament) throws {
-        let book = try BibleBook(bookID: "B\(order)", name: "Book \(order)", canonicalOrder: order)
+    func testamentFollowsTheBookID(id: String, order: Int, expected: BibleBook.Testament) throws {
+        let book = try BibleBook(bookID: id, name: "Book \(order)", canonicalOrder: order)
 
         #expect(book.testament == expected)
     }

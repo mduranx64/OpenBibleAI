@@ -25,11 +25,18 @@ public struct BibleBook:
         case new
     }
 
-    /// Derived from `canonicalOrder` for the bundled 66-book protocanon:
-    /// books 1–39 are the Old Testament and 40–66 the New Testament.
+    /// Derived from the publisher book ID: the 27 New Testament books are
+    /// `.new`; every other book, including the deuterocanonical books of
+    /// Catholic editions (in their place in the version's order), is `.old`.
     public var testament: Testament {
-        canonicalOrder <= 39 ? .old : .new
+        Self.newTestamentIDs.contains(bookID) ? .new : .old
     }
+
+    static let newTestamentIDs: Set<String> = [
+        "MAT", "MAR", "LUK", "JOH", "ACT", "ROM", "1CO", "2CO", "GAL", "EPH",
+        "PHI", "COL", "1TH", "2TH", "1TI", "2TI", "TIT", "PHM", "HEB", "JAM",
+        "1PE", "2PE", "1JO", "2JO", "3JO", "JUD", "REV",
+    ]
 
     public init(
         bookID: String,

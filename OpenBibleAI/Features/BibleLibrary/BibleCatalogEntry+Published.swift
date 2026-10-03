@@ -12,7 +12,7 @@ import BibleDomain
 extension BibleCatalogEntry {
     /// The built-in catalog's sequence; a signed remote catalog replaces it
     /// only when its own sequence is at least this.
-    static let publishedSequence = 1
+    static let publishedSequence = 2
 
     /// Versions published as assets of the `bibles` release of this repository,
     /// pinned by size and SHA-256 (see DEVELOPMENT.md). Only public-domain or
@@ -422,6 +422,20 @@ extension BibleCatalogEntry {
                 .init(name: "books.json", size: 5_321, sha256: "8a4f87ea91a79fd3106f39f57ec75274c9db0ecd2e508da1d947b0b38ba9298e", archive: .init(size: 850, sha256: "445a12d2fa655aae80e6d628d8723766391c1b0ae6d9c096d7d6d1e154772d15")),
                 .init(name: "verses.json", size: 6_942_706, sha256: "7cf3c106b2c652df42e49a39f6374992756c1e7b11f91580d84cf03079b62399", archive: .init(size: 1_671_661, sha256: "8baf847a1a014ed2e2a5810da2fb922492bbd7d47a761d68e784a8384e5925d9")),
                 .init(name: "embeddings.bin", size: 8_243_460, sha256: "0d6b0e825e4d26643529cc18c13122a13c2983eececec4f28d0c5c9356837d04", archive: .init(size: 7_381_460, sha256: "8e6aade0ad58aa1953892c44a7bcc7658cd16a95ca6968f48e4aed7be052ddf8")),
+            ]
+        ),
+        published(
+            id: "dra",
+            name: "Douay-Rheims 1899 American Edition",
+            abbreviation: "DRA",
+            language: "en",
+            copyright: "Public domain",
+            revision: "dra-1",
+            files: [
+                .init(name: "version.json", size: 143, sha256: "dc6e98770af6d83697b270c632523fab953bd95ad70e8d696729c5a5873accdc", archive: .init(size: 114, sha256: "63cde5fc8866999453a209a7f2e64ed4bc49f5f1d8bf61149f54bc9818056031")),
+                .init(name: "books.json", size: 5_872, sha256: "57b81d6e7506ac3980c991bde70b76553633b1c9acb32b4dc255563f4d4706ef", archive: .init(size: 916, sha256: "603f70fc7fe2e9c6ba18147c3fb687ce2a0d74d6124d89008bf448832e87e361")),
+                .init(name: "verses.json", size: 7_525_010, sha256: "3c53cf20cc1eaafe615bae90bb380002db6146f315f633513a621ba3cc9b4cd5", archive: .init(size: 1_644_240, sha256: "a4748d459a2b1925d11e48c90d6b2450254a9d8755404f06b006a3868357b338")),
+                .init(name: "embeddings.bin", size: 9_490_592, sha256: "e57696ef59ce69c63e450449c8da2a7ad0aa70776f861cda2861ca64020d460c", archive: .init(size: 8_479_747, sha256: "a92d4ecbc7825c075fd7ee0a14b1599aac8ff15e95304dec71610076c8c37d04")),
             ]
         ),
     ]
