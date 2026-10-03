@@ -90,6 +90,8 @@ final class AppModel {
 
         state = .loading
         await library.refresh()
+        // Newer versions from the signed remote catalog, without blocking the reader.
+        Task { await library.updateCatalog() }
         guard let id = library.activeVersionID else {
             state = .needsVersion
             return

@@ -18,7 +18,7 @@ struct BibleLibraryModelTests {
                 repository: "owner/repo",
                 revision: "bible-\(id)-1",
                 files: [ModelManifest.File(name: "verses.json", size: 1_000, sha256: "")],
-                host: .gitHubRelease
+                host: .gitHubRelease(tag: "bibles")
             )
         )
     }

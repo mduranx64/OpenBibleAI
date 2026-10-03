@@ -10,12 +10,13 @@ import Foundation
 import Observation
 
 /// A Bible version offered for download, pinned to its release files.
-nonisolated struct BibleCatalogEntry: Identifiable, Equatable, Sendable {
+nonisolated struct BibleCatalogEntry: Identifiable, Equatable, Sendable, Codable {
     let version: BibleVersion
     let manifest: ModelManifest
 
     var id: String { version.id }
-    var downloadSize: Int64 { manifest.totalBytes }
+    /// Bytes to download (files are published compressed where it helps).
+    var downloadSize: Int64 { manifest.downloadBytes }
 }
 
 /// An installed version, loaded for reading, search and the chat.
@@ -28,7 +29,9 @@ nonisolated struct LoadedBible: Sendable {
 
 /// The Bible versions the user can install: download (verified, resumable),
 /// delete, the active reading version, and loading installed versions.
-/// UI-facing, main-actor state.
+/// The catalog starts as the built-in one and, with `updates`, takes newer
+/// versions from the signed remote catalog; installed versions stay pinned to
+/// the entry they were installed from. UI-facing, main-actor state.
 @MainActor
 @Observable
 final class BibleLibraryModel {
@@ -41,14 +44,20 @@ final class BibleLibraryModel {
         case notInstalled(String)
     }
 
-    let catalog: [BibleCatalogEntry]
+    private(set) var catalog: [BibleCatalogEntry]
     private(set) var installedIDs: Set<String> = []
     /// Downloads in progress or failed, by version ID.
     private(set) var downloads: [String: DownloadState] = [:]
     private(set) var activeVersionID: String?
     private(set) var hasRefreshed = false
 
-    @ObservationIgnored private let stores: [String: any LocalModelStoring]
+    @ObservationIgnored private var stores: [String: any LocalModelStoring]
+    /// The manifest each store was made for, to replace a store whose entry changed.
+    @ObservationIgnored private var storeManifests: [String: ModelManifest] = [:]
+    @ObservationIgnored private let builtIn: BibleCatalogDocument
+    @ObservationIgnored private var remote: BibleCatalogDocument?
+    @ObservationIgnored private let makeStore: ((BibleCatalogEntry) -> any LocalModelStoring)?
+    @ObservationIgnored private let updates: BibleCatalogUpdates?
     @ObservationIgnored private let defaults: any ReadingPositionStorage
     @ObservationIgnored private let load: @Sendable (BibleCatalogEntry, URL) async throws -> LoadedBible
     @ObservationIgnored private var tasks: [String: Task<Void, Never>] = [:]
@@ -57,32 +66,45 @@ final class BibleLibraryModel {
 
     private static let activeVersionKey = "bible.activeVersion"
 
+    /// `stores` serve the given catalog; `makeStore` makes stores for entries
+    /// that arrive later (remote or pinned) or change.
     init(
         catalog: [BibleCatalogEntry],
-        stores: [String: any LocalModelStoring],
+        sequence: Int = 0,
+        stores: [String: any LocalModelStoring] = [:],
+        makeStore: ((BibleCatalogEntry) -> any LocalModelStoring)? = nil,
+        updates: BibleCatalogUpdates? = nil,
         defaults: any ReadingPositionStorage,
         load: @escaping @Sendable (BibleCatalogEntry, URL) async throws -> LoadedBible = BibleLibraryModel.loadPackage
     ) {
         self.catalog = catalog
+        self.builtIn = BibleCatalogDocument(schema: BibleCatalogDocument.currentSchema, sequence: sequence, entries: catalog)
         self.stores = stores
+        self.makeStore = makeStore
+        self.updates = updates
         self.defaults = defaults
         self.load = load
+        for entry in catalog where stores[entry.id] != nil {
+            storeManifests[entry.id] = entry.manifest
+        }
+        syncStores()
     }
 
-    /// The app's library: the pinned catalog, stored under Application Support.
+    /// The app's library: the built-in catalog plus signed remote updates
+    /// (when a catalog key is configured), stored under Application Support.
     static func live(defaults: any ReadingPositionStorage = UserDefaults.standard) -> BibleLibraryModel {
         let directory = URL.applicationSupportDirectory
             .appendingPathComponent("OpenBibleAI", isDirectory: true)
             .appendingPathComponent("Bibles", isDirectory: true)
-        let catalog = BibleCatalogEntry.published
-        var stores: [String: any LocalModelStoring] = [:]
-        for entry in catalog {
-            stores[entry.id] = LocalModelStore(
-                manifest: entry.manifest,
-                directory: directory.appendingPathComponent(entry.id, isDirectory: true)
-            )
-        }
-        return BibleLibraryModel(catalog: catalog, stores: stores, defaults: defaults)
+        return BibleLibraryModel(
+            catalog: BibleCatalogEntry.published,
+            sequence: BibleCatalogEntry.publishedSequence,
+            makeStore: { entry in
+                LocalModelStore(manifest: entry.manifest, directory: directory.appendingPathComponent(entry.id, isDirectory: true))
+            },
+            updates: BibleCatalogUpdates.live(directory: directory),
+            defaults: defaults
+        )
     }
 
     @concurrent
@@ -121,6 +143,14 @@ final class BibleLibraryModel {
     }
 
     func refresh() async {
+        if let updates {
+            if remote == nil, let cached = await updates.storage.cachedCatalog() {
+                remote = try? updates.verifier.document(from: cached.catalog, signature: cached.signature)
+            }
+            catalog = BibleCatalogEntry.merged(builtIn: builtIn, remote: remote, pinned: await updates.storage.pinnedEntries())
+            syncStores()
+        }
+
         var installed: Set<String> = []
         for entry in catalog where await stores[entry.id]?.isInstalled() == true {
             installed.insert(entry.id)
@@ -134,6 +164,20 @@ final class BibleLibraryModel {
             activeVersionID = catalog.first { installed.contains($0.id) }?.id
         }
         hasRefreshed = true
+    }
+
+    /// Fetches the signed remote catalog and, if it verifies and is at least
+    /// as new as the one in use, remembers it and offers its versions.
+    /// Failures (offline, bad signature, older catalog) keep the current one.
+    func updateCatalog() async {
+        guard let updates,
+              let fetched = try? await updates.fetch(),
+              let document = try? updates.verifier.document(from: fetched.catalog, signature: fetched.signature),
+              document.sequence >= max(remote?.sequence ?? 0, builtIn.sequence)
+        else { return }
+        await updates.storage.cacheCatalog(fetched.catalog, signature: fetched.signature)
+        remote = document
+        await refresh()
     }
 
     /// Makes an installed version the reading version and remembers it.
@@ -161,10 +205,14 @@ final class BibleLibraryModel {
             }
         }
 
+        // The entry the store downloads, remembered once it's installed.
+        let installing = entry(id)
         let task = Task { [weak self] in
             var outcome: DownloadState?
+            var succeeded = false
             do {
                 try await store.download(progress: report)
+                succeeded = true
             } catch is CancellationError {
                 outcome = nil
             } catch {
@@ -173,6 +221,9 @@ final class BibleLibraryModel {
             guard let self, generation == self.generations[id] else { return }
             self.downloads[id] = outcome
             self.tasks[id] = nil
+            if succeeded, let installing {
+                await self.updates?.storage.pin(installing)
+            }
             let hadActive = self.activeVersionID != nil
             await self.refresh()
             if !hadActive, self.installedIDs.contains(id) {
@@ -198,6 +249,7 @@ final class BibleLibraryModel {
         loaded[id]?.cancel()
         loaded[id] = nil
         try? await stores[id]?.delete()
+        await updates?.storage.unpin(id)
         await refresh()
         return true
     }
@@ -238,6 +290,16 @@ final class BibleLibraryModel {
     }
 
     // MARK: - Helpers
+
+    /// Makes a store for each catalog entry without one, or whose entry
+    /// changed (never while it downloads).
+    private func syncStores() {
+        guard let makeStore else { return }
+        for entry in catalog where storeManifests[entry.id] != entry.manifest && tasks[entry.id] == nil {
+            stores[entry.id] = makeStore(entry)
+            storeManifests[entry.id] = entry.manifest
+        }
+    }
 
     /// Late progress callbacks from an older or finished download are ignored.
     private func reportProgress(_ fraction: Double, id: String, generation: Int) {

@@ -15,5 +15,14 @@ BUNDLE_ID_PREFIX = com.example
 // com.example.OpenBibleAI, com.example.OpenBibleAITests.
 PRODUCT_BUNDLE_IDENTIFIER = $(BUNDLE_ID_PREFIX).$(PRODUCT_NAME:rfc1034identifier)
 
+// Where Bible versions are published (GitHub release assets) and the
+// Ed25519 public key that verifies the signed remote catalog (hex, from
+// `Tools/BibleImport/catalog_key.sh public-key`). Without a key the app offers
+// only its built-in catalog. Set the key in Local.xcconfig. Only ever the
+// PUBLIC key: Tools/generate_build_settings.sh compiles these values into the app.
+BIBLE_RELEASE_REPOSITORY = mduranx64/OpenBibleAI
+BIBLE_RELEASE_TAG = bibles
+BIBLE_CATALOG_PUBLIC_KEY =
+
 // Per-developer overrides. The "?" makes this optional.
 #include? "Local.xcconfig"

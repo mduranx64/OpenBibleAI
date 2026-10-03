@@ -17,3 +17,13 @@ DEVELOPMENT_TEAM = ABCDE12345
 // Reverse-DNS prefix for bundle identifiers. Use a domain you control, since
 // bundle identifiers must be globally unique to register with Apple.
 BUNDLE_ID_PREFIX = com.yourdomain
+
+// Public key of the Bible catalog signing key (hex), printed by
+// `Tools/BibleImport/catalog_key.sh generate` or `public-key`. Enables the
+// signed remote catalog, so new Bible versions appear without an app update.
+// Never put the private key here.
+BIBLE_CATALOG_PUBLIC_KEY =
+
+// Optional: download Bibles from another repository or release (e.g. a fork).
+// BIBLE_RELEASE_REPOSITORY = you/OpenBibleAI
+// BIBLE_RELEASE_TAG = bibles

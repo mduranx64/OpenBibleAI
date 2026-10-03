@@ -1,0 +1,1630 @@
+{
+  "schema": 1,
+  "sequence": 1,
+  "entries": [
+    {
+      "version": {
+        "id": "kjv",
+        "name": "King James Version",
+        "abbreviation": "KJV",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "kjv-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 127,
+            "sha256": "84bdd87765f9360354c981782177434f0623bb4b2abcd12e55f8884fe4e5cb4b",
+            "archive": {
+              "size": 98,
+              "sha256": "07f6afcde51ab68fa9d01a9acaad5f6a01715032899b7c90f28b845339deae0a"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6698294,
+            "sha256": "53f72606c548907934bc3109d7dba2185eede224e445c70e30bd0d99cc516d69",
+            "archive": {
+              "size": 1457421,
+              "sha256": "7b50347143325bff5448d7020e8ca01b7b539f161959c0679686524cc7a2b070"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8242665,
+            "sha256": "d7e2845e2a62afc830e6ec93a50029eff77e32a0809a0cad7e63718ebbeb3296",
+            "archive": {
+              "size": 7374245,
+              "sha256": "61e48eb8f066cec5946e83e89426cb0d7cd039121126376b971ab34e3d5cc7d7"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "bsb",
+        "name": "Berean Standard Bible",
+        "abbreviation": "BSB",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "bsb-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 130,
+            "sha256": "4a373c9123c26453adfcd637036ba5e5d46b240eb6e625e672b926aa29ada15e",
+            "archive": {
+              "size": 101,
+              "sha256": "fde67406016fe08254cd8bb2cefc05ab8144d1accfe682e6846c832c1217085a"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6381090,
+            "sha256": "3af3a96ff8f2839088ac46362a57bad2aa82a9eed79db3eaf3348172cb89e439",
+            "archive": {
+              "size": 1429481,
+              "sha256": "ecd63865ff53489e50c91aa66a62eda8fd4dc2757ffaf559fb2e9d433f038133"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8238425,
+            "sha256": "415e3742c3143bb1341664a204d7e523a2ecc67c44162f4e029a42dfb0d6d286",
+            "archive": {
+              "size": 7347104,
+              "sha256": "b1b89a88733f989fc2d3aeeedeea9f7512e4904a415600dd9b0527bc97ba6137"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "msb",
+        "name": "Majority Standard Bible",
+        "abbreviation": "MSB",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "msb-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 132,
+            "sha256": "26c8f9381b46da49521683215a9e96f1b75ddf8148238aac261d4a2742ba4969",
+            "archive": {
+              "size": 104,
+              "sha256": "888bbde5311b60a4b19ef03d2f8184fce7b6375fa394972fd054114e6b0f66a7"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6390352,
+            "sha256": "b8dec809e4cc874271274265d0b4d812fe9c8f8750790c378ffede37bdc2eec8",
+            "archive": {
+              "size": 1431648,
+              "sha256": "2e3230169621e60e358b0171adc648ed1c82db780fa1be77d59ba287d3b336af"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241605,
+            "sha256": "6857742991afe23f6624c200bb759dc160ba0b755bc3d6db1144d8c43bcc45b5",
+            "archive": {
+              "size": 7349452,
+              "sha256": "86fb4cb41090bd4f5c1039250a1e57a890af42c3dd792b38682ab0e3c285380a"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "web",
+        "name": "World English Bible",
+        "abbreviation": "WEB",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "web-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 128,
+            "sha256": "6842f3c1e9ce7fcf8c9e459dfd057f436c422f337d4373885174402105a0250a",
+            "archive": {
+              "size": 101,
+              "sha256": "e66e6ac3a8727cc25548ab91a5076bb38a34f1ff46d0ead40a55a4f29c67019e"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6535805,
+            "sha256": "9a8a1390360162715249b56161a1265125c7557a5262867be992929a10854600",
+            "archive": {
+              "size": 1412041,
+              "sha256": "b2f41960120e3502e117126ee84d13a8b74b3885a2b1996922e52778f89f2d2c"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241605,
+            "sha256": "774e6ce25f2bc192aac712e9ad9003ea176131f3d174de1b8956ac2e28d77343",
+            "archive": {
+              "size": 7345911,
+              "sha256": "13cfef44bb4f4c2b700c985c132f1a4c358cdb9548c928f5eda381dc6a467d19"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "webbe",
+        "name": "World English Bible, British Edition",
+        "abbreviation": "WEBBE",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "webbe-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 149,
+            "sha256": "af87f244862b731ca465dedeed435177f52c31287a4a824b236ffd08edfc990e",
+            "archive": {
+              "size": 113,
+              "sha256": "5fd1a322823692748ea46f35663201434e3a4909c32bfda4fed10e0c1d5a8a66"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6540873,
+            "sha256": "83a6f3e75debbcf9032dcd9cb96362441e80385ed783cc2eba0c0e3b64fdd15f",
+            "archive": {
+              "size": 1412565,
+              "sha256": "f371170e6b2d631d8a4d1e6503f063e07d29c2191653f8f46b09523c6f328c01"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241605,
+            "sha256": "e94dbde6995a61168f1d2b29060ccbf9345409239ad2be4b51621e489af92dfb",
+            "archive": {
+              "size": 7345286,
+              "sha256": "e1174e16e8f48092ac4171b085cd2490c306ae592c419a460e318ad96aea86a1"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "webu",
+        "name": "World English Bible Updated",
+        "abbreviation": "WEBU",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "webu-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 138,
+            "sha256": "4577b1b5771d4350b50e10675983b0503ae7eb429cd48d6af28b13ebcbf68e7f",
+            "archive": {
+              "size": 109,
+              "sha256": "a8dec6e079031b85c725f41417d23eb912722f2e729ba2fe6626348ae33fa489"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6535805,
+            "sha256": "9a8a1390360162715249b56161a1265125c7557a5262867be992929a10854600",
+            "archive": {
+              "size": 1412041,
+              "sha256": "b2f41960120e3502e117126ee84d13a8b74b3885a2b1996922e52778f89f2d2c"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241605,
+            "sha256": "774e6ce25f2bc192aac712e9ad9003ea176131f3d174de1b8956ac2e28d77343",
+            "archive": {
+              "size": 7345911,
+              "sha256": "13cfef44bb4f4c2b700c985c132f1a4c358cdb9548c928f5eda381dc6a467d19"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "webc",
+        "name": "World English Bible Classic",
+        "abbreviation": "WEBC",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "webc-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 138,
+            "sha256": "3b3e0079f96cecf62fd273ecff80cd8e4dfa5d84c0ea9f38249b526b13810b07",
+            "archive": {
+              "size": 109,
+              "sha256": "b50b4012e1bdbd657dfd7bf6ffdeb74bd4d2dcdf6d4f5ffd7b779e7f31bafa29"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6524855,
+            "sha256": "de2a8bd19dfc02a7f3d068188583289dcc12726bc5c149928a668eb646aadf1c",
+            "archive": {
+              "size": 1411338,
+              "sha256": "44a2d42da5bf3fb6717566300549b875f5b52cb2f69f0b9037dfb3ee3973b68a"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241605,
+            "sha256": "89f4871a0fed2f56bbe68606b011b2dc7b2710b7eaf6e9b6ab15907c10705e39",
+            "archive": {
+              "size": 7346658,
+              "sha256": "a5206ff1ac30c65e5c43cd35b80944510002c179dbf1247b265e2bfb129d11b1"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "wmb",
+        "name": "World Messianic Bible",
+        "abbreviation": "WMB",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "wmb-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 130,
+            "sha256": "638c5bf67cd70843e69d9dd2c9c5c5e3daf8422912276a31d21abfc416893c67",
+            "archive": {
+              "size": 103,
+              "sha256": "82d09d3edf2f4309b91dbdc6f2e003c81ef13a4c460334f6bf91f977870b0309"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6539083,
+            "sha256": "add1a2397e7a49ab316b11f5eaa42fb37fa98c37f60df9a6deb447bad456f1e8",
+            "archive": {
+              "size": 1412762,
+              "sha256": "6a151a284e9ed94d8ba1639e2367f9a0b8d710cdad1d9adb99e190bbfb3b1d09"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241605,
+            "sha256": "90d254f2d390d0c37029ff6067038651809039fcf7ddc5a8e483e2c5e1d1a37d",
+            "archive": {
+              "size": 7346425,
+              "sha256": "24e21e015cccd25dc94180fdf28fdddf33afee1539b8a8404237a4ed598c25da"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "wmbbe",
+        "name": "World Messianic Bible, British Edition",
+        "abbreviation": "WMBBE",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "wmbbe-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 151,
+            "sha256": "4cfdc82af22186cfd7cbe8f2ca8fbcf31a2622b7b65975eb81d1d4306e6ced2a",
+            "archive": {
+              "size": 117,
+              "sha256": "a874c700283a4681a94105f27875ae419cfe3e9085372308a79c9f143ca2e928"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6544151,
+            "sha256": "09472ee2c328b6c83208670b6f412a233c3022042c49e566626ab3281d3dd37a",
+            "archive": {
+              "size": 1413293,
+              "sha256": "3e281171b476c6e40dc5b631530db547f474d5a443b37a8528ee810124eac742"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241605,
+            "sha256": "9a519e6dd370dc9bd23e8bc31e9c57df85ad9f26d4f7930328d09e77e81a80f5",
+            "archive": {
+              "size": 7345878,
+              "sha256": "d68321f11cadcfd53cfcf77d7693c6f4ed41b72e00cb75e4b1704f671a749c69"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "fbv",
+        "name": "Free Bible Version",
+        "abbreviation": "FBV",
+        "language": "en",
+        "copyright": "© 2018 Dr. Jonathan Gallagher · CC BY-SA 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "fbv-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 160,
+            "sha256": "c9fe7731f2be030742bafb87583526b9232833f1d2c24268075eecdf52ff74a1",
+            "archive": {
+              "size": 134,
+              "sha256": "e7e6df255d1e698495878035c7ccc9fbd7cbe8e6de2daa36aa3620e50c0ce214"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6488380,
+            "sha256": "93888c8920a53fbbf8fff6469419844299fe896536f3934899b0d640f41a7aec",
+            "archive": {
+              "size": 1484433,
+              "sha256": "2b7e023855082a430d4ca3b437aa9d59cba55ad378f82d7d704259451aea9cc4"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8238690,
+            "sha256": "4dbcce235adb7623c680b4f701f3e53477a0f0ce85d3e89333c80123299e8005",
+            "archive": {
+              "size": 7327331,
+              "sha256": "77726b7a46d7c8bf1b56edc9325f99185e0dbbcc0313cd7ba0cfa0daa668e605"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "lsv",
+        "name": "Literal Standard Version",
+        "abbreviation": "LSV",
+        "language": "en",
+        "copyright": "© 2020 Covenant Press · CC BY-SA 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "lsv-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 158,
+            "sha256": "1df711442701c947ebc941eeebf5cdf1f22ff1e115cf04aa42f2458c4bb9b690",
+            "archive": {
+              "size": 131,
+              "sha256": "2f895704cad0b435f5548131e2f6a96edcb3ff631428b1441ba2b9ae50698cd6"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6658093,
+            "sha256": "2bcd95a45ca9f15bf84bc9b0ccc1e3892234bb9b59f4be6443cd1defbff0ef2f",
+            "archive": {
+              "size": 1417318,
+              "sha256": "0b06487a8b5bc8643599d448c32f18da41ff799f5060e73ead94aaaca6da7c5a"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8243195,
+            "sha256": "88889c47a18ffbb7e0e2a545789ef9a507e96ffae74e13bc29ef710efb652815",
+            "archive": {
+              "size": 7367900,
+              "sha256": "f13d37722d0f96651786262e8188a398928b180df5f46c21399ff641131e831f"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "ulb",
+        "name": "Unlocked Literal Bible",
+        "abbreviation": "ULB",
+        "language": "en",
+        "copyright": "© 2017 Door43 World Missions Community · CC BY-SA 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "ulb-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 173,
+            "sha256": "931f5e91e44131380ec80c044495bf565f3d7f84eed1354d23ccfeaf1cc87135",
+            "archive": {
+              "size": 145,
+              "sha256": "bde05bed957b86a4ee6a4a6ad20d2fefed5c9f5411acce7c8c68683a94fcc062"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6590139,
+            "sha256": "1259998b6c674fdff05874622eb3246ed6060c6b690d878c96a653aa8066d943",
+            "archive": {
+              "size": 1467006,
+              "sha256": "f85f42755693f9004bdd53cdfc129aa0f08373cd389d7d94ff8b08145210d473"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8236305,
+            "sha256": "14c9ebd530de735dcf3b8aaa8fd55ffe8e8fd298912c0c714f24bf451e13ec9b",
+            "archive": {
+              "size": 7348882,
+              "sha256": "b428ad4967427a35657839073f5d5aa084710ba2a621991f723afb4694483b2f"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "t4t",
+        "name": "Translation for Translators",
+        "abbreviation": "T4T",
+        "language": "en",
+        "copyright": "© 2008-2017 Ellis W. Deibler, Jr. · CC BY-SA 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "t4t-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 173,
+            "sha256": "49d50c7e1a1793ff40f780b9540561e759b8f8c13a7997966ca496a9bb287970",
+            "archive": {
+              "size": 140,
+              "sha256": "3130f9e9f9c72ee1d3f5673113c054977f86613744800a05b384acd99a8b8d8a"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 8189535,
+            "sha256": "39f32758ac140a79708dd19b5edf33c4e4e9716259c330488b26259aaf7b9fd9",
+            "archive": {
+              "size": 1986486,
+              "sha256": "a084d8a7b406d52a0cf7564f13ce8e0b03103d10bfd76d36699e837568afd0b8"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8120235,
+            "sha256": "dbbaf4ab9e25b9dbd7453988ca2b29e4c1ebb50e8b5eb1e64579e95373dff35c",
+            "archive": {
+              "size": 7274628,
+              "sha256": "8e5b769d8df4f6ccdfc5b6dedfb5c63f2e031cfe7e1c54e2af531896889f25b0"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "ojb",
+        "name": "The Orthodox Jewish Bible",
+        "abbreviation": "OJB",
+        "language": "en",
+        "copyright": "© 2002-2011, 2021, 2024 Artists for Israel International · CC BY 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "ojb-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 191,
+            "sha256": "787857fc495cdb4e54ee14bc8251832e7d0292656003d79e7cf56fb1e677706a",
+            "archive": {
+              "size": 154,
+              "sha256": "8b435c4f38be906d12adbe921b7131f073e5db31ae7144aefa5763c0b79aaea2"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 7075561,
+            "sha256": "3eb904f62bdea418318955c6b1eba0e5f0cfcf847f311bec1f38d6dbd0056a5a",
+            "archive": {
+              "size": 1682327,
+              "sha256": "20c6081a62bc69b8bb8fb457b0a6ada7b7c61cef26827447aeb43b9c36798f38"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8259360,
+            "sha256": "90bf6166fbe1c6b9735ec011e5c35c77d8d297b5a6285e3a57adcf23586e273f",
+            "archive": {
+              "size": 7416560,
+              "sha256": "cb3f881b9a5f6794bb0aabc3cd83f03c602977e5f73a4c4836cab197507af02b"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "bbe",
+        "name": "Bible in Basic English",
+        "abbreviation": "BBE",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "bbe-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 131,
+            "sha256": "d86453f4efbb58c580bd7645a52b97559142cb9c8314e3f9f6e0aadb39038822",
+            "archive": {
+              "size": 102,
+              "sha256": "f7a7762b17f749dd19c296f1b8c89af99411b28551fd6efac01bc4aa324fc143"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6674880,
+            "sha256": "05b34769617d2c8afac879c6bd4452bdfa7e6c53fa1997fbf148b18942ca5c2b",
+            "archive": {
+              "size": 1385263,
+              "sha256": "90f91571c3680a89a90fc164fcef3bf7389099f95d889de08993d882b14cf488"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8242665,
+            "sha256": "09b2162d91c8bd9f0cb54946b61447604504b21ad75adaf006311e4b82de4f9e",
+            "archive": {
+              "size": 7344661,
+              "sha256": "90e4145ecebf35a85c42286c4f1a98ddc2dcfd6b557eb455da26cf820cdde513"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "asv",
+        "name": "American Standard Version (1901)",
+        "abbreviation": "ASV",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "asv-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 141,
+            "sha256": "ee2f3106eb2f7cd81a49512f3d8251367dbf5f43ed1029e1b17358c7f4f15f0e",
+            "archive": {
+              "size": 114,
+              "sha256": "2c7a118c7750e108d24300963621e68c364d12d0a1422730593dfee4e9c3f5fb"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6657399,
+            "sha256": "00abaac0ba0cf15295187b956121285974cf92340464c6576cea938ef0163dac",
+            "archive": {
+              "size": 1432906,
+              "sha256": "5ea80d8d9d94032e7a37a44c9cc9d284b2ef74334d009d8f53d171ff0ea16f3c"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8238425,
+            "sha256": "0a405ece16570030a5ce103c1b618a779193b6473d41bd11727f694ee66e7a70",
+            "archive": {
+              "size": 7356741,
+              "sha256": "0e15a5512710dc2880b0f7df610cb6e63d7a9419b26e7e94f6ff6ff1c1b39b45"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "asvbt",
+        "name": "ASV Byzantine Text",
+        "abbreviation": "ASVBT",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "asvbt-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 131,
+            "sha256": "cdfd4a272e2b2085b42ad678532c1b91920477b0d9c0455d3593a95190195327",
+            "archive": {
+              "size": 101,
+              "sha256": "54c9de94309a8307e98b10045cca698f30d355755278ef3ea706f54590a2f2d7"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6667655,
+            "sha256": "381de78fc03240de5e2687062e59a8bf9aab1a85adaee5778f3b62a16ecaa2fc",
+            "archive": {
+              "size": 1434328,
+              "sha256": "0b180692788f5bf159db19065c3445ab6c21ac522d5d00c93dea667253e3a375"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241870,
+            "sha256": "825067ac216ec7a1504bbd25a67988d52992e49f72a44e4fabfc43db7233ddf8",
+            "archive": {
+              "size": 7359196,
+              "sha256": "208140c934ff2cf0d7986f45854e1a1514f4d7525fb7cf5ddef432ed9298602d"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "rv1895",
+        "name": "Revised Version (1895)",
+        "abbreviation": "RV",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "rv1895-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 133,
+            "sha256": "7984c6e02e6ba2e4e38162681d68dbe12874f7ab1ae68311e939b56c601eaf2d",
+            "archive": {
+              "size": 106,
+              "sha256": "fc037b827c454d9b437f2a2a2dfa478fc9223650cc60d489adce18a096733c8f"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6660866,
+            "sha256": "180e94a21dccef666c572235a94460b3ef12202780c8dc82e8056b71741e9e08",
+            "archive": {
+              "size": 1431060,
+              "sha256": "9c973b4786ced5bc7de9680dfad64902129a7bcc2aedea4c150f82c63c94d0dc"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8238425,
+            "sha256": "d90ec66632d3e27c18cf4f0db94f44aa701090f271c760b8a28c99290f32c77e",
+            "archive": {
+              "size": 7355821,
+              "sha256": "aa6b802574167d6a434650209e6a32152367c091d039d62793f398d9627461e8"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "darby",
+        "name": "Darby Translation",
+        "abbreviation": "DBY",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "darby-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 128,
+            "sha256": "99ef71aedfda95c72bc7e1ccad1a32f983e00db37c3f90bf57a5633731ce24d0",
+            "archive": {
+              "size": 98,
+              "sha256": "7d84d65fc89cae7d791b91d430899ec5dd30ac043b628760522ba6caff3de37e"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6607388,
+            "sha256": "63de653fcabcc02bfabb33d681a06bd186d08a2969f0c8191860999d417c4080",
+            "archive": {
+              "size": 1430781,
+              "sha256": "0568d9405e75d09d76ab269a5b578afccdacd4bdff6eb88f6346f75ed50d6b3b"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8241870,
+            "sha256": "2d5d8700f4f9005c573d13cafc5c463a0180f58b7441673bfe3dfcecb26bfd73",
+            "archive": {
+              "size": 7356811,
+              "sha256": "7e72e08aa3eff4cdab9450eb4e9f34288c1a01b8891d56ff42ab0eb85860e42e"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "webster",
+        "name": "Webster Bible (1833)",
+        "abbreviation": "WBS",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "webster-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 133,
+            "sha256": "21fa19be8bcbfc0fcc0458529791e7e690bd567f1bab4e05ecfb3653c30cdbe6",
+            "archive": {
+              "size": 106,
+              "sha256": "1708147b957a1d2b9d214e276297345dec589989993e9d5d61c74730886f677b"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6655822,
+            "sha256": "06dc649abfdfdf0f646e0f51cc144a5b11660acdbdf548b5438a994e5ebd01ed",
+            "archive": {
+              "size": 1446506,
+              "sha256": "abcd8f226f55083ecae45019035891b5310fa7b3156dd32f960c4002bf77074c"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8242665,
+            "sha256": "2df0381d0e5146df2f59fc8e62ce15c01d8112c69a04fa4c4e99846fef9b947d",
+            "archive": {
+              "size": 7368471,
+              "sha256": "df4b8bec240d46845174eca4477ce7b2b9fa5c6a50b3969f78f3178267cbb84e"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "gnv",
+        "name": "Geneva Bible (1599)",
+        "abbreviation": "GNV",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "gnv-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 128,
+            "sha256": "1a2471341587fc24bae3e1dd7b678a0682527e940f7d6607c27a934d8a1f0ce7",
+            "archive": {
+              "size": 105,
+              "sha256": "038d39fcfa34843e6e01defde3dd41870cb959139d33d687acc5d9565b25b43c"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6682906,
+            "sha256": "6f14d14426eea813d4a09f28a0a2ecc86e3b272df180b38d14f1947e74e4ed79",
+            "archive": {
+              "size": 1447391,
+              "sha256": "c845d7925212ebcc378ca248b75015699c176b3d3d5d2c7ca87575a82ebd19bf"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8239485,
+            "sha256": "fc414542f7201125b93577310df42689c76fbd840dc274b84a19486dcac76ea6",
+            "archive": {
+              "size": 7346924,
+              "sha256": "b056e9c6e0e4f6e6c4ef45896b4a89370c4ff63898cefe684f79515689a7a9a7"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "ylt",
+        "name": "Young's Literal Translation",
+        "abbreviation": "YLT",
+        "language": "en",
+        "copyright": "Public domain"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "ylt-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 136,
+            "sha256": "a8c4890ee5f5abce30a04d1f652321c6c0052b909de348bc15c57088dc4f8015",
+            "archive": {
+              "size": 105,
+              "sha256": "b3e646e26fb3665e8030d996c1046521d56c7d9cca868be5e8246c32ab9abc96"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5310,
+            "sha256": "8ee8b3d8827b880522ad35c2e235ff0d009cb990ab861233910e1925f959c3dd",
+            "archive": {
+              "size": 834,
+              "sha256": "7c06c45f3b6d653aeae5090e25e91f61b0e16e6020f5b1af285cc17cd56b6bf1"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6672503,
+            "sha256": "08a8fa2b617b3757dc1dce4b91246d8d07abfe0ec3312f5d2092bc8d6792c5da",
+            "archive": {
+              "size": 1427933,
+              "sha256": "53228dfb57dda8590f9b914b4b60c749a3f7be018fd345c5282a3c7169ab913d"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8242665,
+            "sha256": "cde7d6ac9056e1d6061024865be2339091430cbd706b16ed5b99eb1f42398e11",
+            "archive": {
+              "size": 7368207,
+              "sha256": "d28fc8c9b2ae42844f8818f5fbb684e0402a2bf0da7820d34126e66aea824807"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "rv1909",
+        "name": "Reina-Valera 1909",
+        "abbreviation": "RV1909",
+        "language": "es",
+        "copyright": "Dominio público"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "rv1909-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 135,
+            "sha256": "cc40ab47863d54d74a33ec7cf104d0bb73f8ac0444d14a72b5186edf2ec19c8d",
+            "archive": {
+              "size": 104,
+              "sha256": "f6300629da0c4cc6365e9c83f5a73d75057fd1dd351be09d5d9a930d393c89aa"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5319,
+            "sha256": "11a538fdce53452a02c93881e81390ed4c41988274d89e41a30bfce96b25a34b",
+            "archive": {
+              "size": 844,
+              "sha256": "f4e58b0d40c89eab3cc4e964489400e56857ce8cd793fb04cf891eda73d130c4"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6442872,
+            "sha256": "2c01852455d8c3a6fb65707aec1cff1edd23d0e8bde7ba740ccac351493d8b64",
+            "archive": {
+              "size": 1461641,
+              "sha256": "318202145cc564d3bc3991fea239bafc69d4f701fcf36b215d865fc28392cb33"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8237895,
+            "sha256": "3fd13e6115bc6be4f3c92f4f9e9426ea83c848aec2537fe172fa31d9ac2685dc",
+            "archive": {
+              "size": 7343611,
+              "sha256": "f36334c42db3c2c9f8fc8de2d77bf1ed83c58ff47fe49d3c48889e031ed04368"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "bes",
+        "name": "La Biblia en Español Sencillo",
+        "abbreviation": "BES",
+        "language": "es",
+        "copyright": "© 2018, 2019 AudioBiblia.org / Irma Flores · CC BY 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "bes-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 182,
+            "sha256": "5cbfa0a1c64d583a47a3daf3247c71b27f2e63f1637d62a97ddb8cd23f977491",
+            "archive": {
+              "size": 146,
+              "sha256": "0b4cdf23ba255ffa2e4def971eb853d9564f8eb4636fa5a64379494e7ec02e87"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5319,
+            "sha256": "11a538fdce53452a02c93881e81390ed4c41988274d89e41a30bfce96b25a34b",
+            "archive": {
+              "size": 844,
+              "sha256": "f4e58b0d40c89eab3cc4e964489400e56857ce8cd793fb04cf891eda73d130c4"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6408352,
+            "sha256": "a66f28ee8999de4bf72c39b99428ec0d39cc678f875d22544ede90639809104f",
+            "archive": {
+              "size": 1421578,
+              "sha256": "6a8f7ff3253ad4ca41c7a7ef2882fb0b1d1fc64779bd4e3e24208f700157e116"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8242665,
+            "sha256": "1347bb28e39e3bd24b05cb4c147e520ed875d6f316868d51bee2c15fdd8a869a",
+            "archive": {
+              "size": 7330774,
+              "sha256": "0e3619cf7e9e0b4f48bc28c72e7f352dbc9c3fdb9ec82fa9193f0427c1159fbc"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "pdpt",
+        "name": "Palabra de Dios para ti",
+        "abbreviation": "PDPT",
+        "language": "es",
+        "copyright": "© 2020 Asociación Bíblica Latinoamericana · CC BY 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "pdpt-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 178,
+            "sha256": "cb7fa017b2661d2adbc9787e2d295e3593b340ea294ca5cf48a0c6ec1a0b0990",
+            "archive": {
+              "size": 147,
+              "sha256": "5f5471af78de735c82af47266cc120bd8f3691b605ec2cc3a664525f61defa8d"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5319,
+            "sha256": "11a538fdce53452a02c93881e81390ed4c41988274d89e41a30bfce96b25a34b",
+            "archive": {
+              "size": 844,
+              "sha256": "f4e58b0d40c89eab3cc4e964489400e56857ce8cd793fb04cf891eda73d130c4"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6304387,
+            "sha256": "7d6240218dbf4a2f8479eec63023995870fd1f19d74288a1910a68a473a6337b",
+            "archive": {
+              "size": 1441528,
+              "sha256": "e73fbd52e96997fbacbd6d0d8809ad8e594f0d688556b56c71d04473c0846716"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8237100,
+            "sha256": "73a29445e2b8c07898aaee2fed5ad18c9a6cc87c60b817958d4239139e5d0526",
+            "archive": {
+              "size": 7337664,
+              "sha256": "f7979103bbd29b44e0a5f3f10bd037bc74d60d56c2192b6d7ede3cc2c7f9e739"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "vbl",
+        "name": "Versión Biblia Libre",
+        "abbreviation": "VBL",
+        "language": "es",
+        "copyright": "© 2018-2020 Jonathan Gallagher y Shelly Barrios de Avila · CC BY-SA 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "vbl-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 190,
+            "sha256": "57fc878254c4487319c926665bc9e2cc40c6b316a5f65b40fac55efd3b35e361",
+            "archive": {
+              "size": 156,
+              "sha256": "def47aa5ff41d3f94640acde1d487b49f825b9889b123826dc552d66ef6dba20"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5319,
+            "sha256": "11a538fdce53452a02c93881e81390ed4c41988274d89e41a30bfce96b25a34b",
+            "archive": {
+              "size": 844,
+              "sha256": "f4e58b0d40c89eab3cc4e964489400e56857ce8cd793fb04cf891eda73d130c4"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6692982,
+            "sha256": "bbc91441e139914dcb235696fc0263b34edd07206c4177f88d82d2b89ae7d006",
+            "archive": {
+              "size": 1569972,
+              "sha256": "016c33e457fb1232e4f1ddccce8a0325bb403154621d93ffcc3cadac2a669079"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8238425,
+            "sha256": "8ba6a0ed3d20fb2d3c6734d40b3319fa2380e3aadce127cb795954715efb9fcc",
+            "archive": {
+              "size": 7348620,
+              "sha256": "63b5d825fddd18a783a5fb77261236ca7fc7b162253c0d1ea850693954825200"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "nbv",
+        "name": "Biblica® Open Nueva Biblia Viva",
+        "abbreviation": "NBV",
+        "language": "es",
+        "copyright": "© 2006, 2008 Biblica, Inc. · CC BY-SA 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "nbv-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 171,
+            "sha256": "558776d00e049ec589491b68fb3de106b8b00cb64f651fc47826cf9e952c9075",
+            "archive": {
+              "size": 139,
+              "sha256": "defc83a75ff19f8a9d5f4845d3fb22734ad8d9850371b52a71b304b95968e4c2"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5319,
+            "sha256": "11a538fdce53452a02c93881e81390ed4c41988274d89e41a30bfce96b25a34b",
+            "archive": {
+              "size": 844,
+              "sha256": "f4e58b0d40c89eab3cc4e964489400e56857ce8cd793fb04cf891eda73d130c4"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6363245,
+            "sha256": "388b5651ee97473c78334444d728098c9e8595c0c2856f8acab68e64c4e32fa7",
+            "archive": {
+              "size": 1567618,
+              "sha256": "39f3e2477ec5f13826d0ee063301e02c966ae767b49195559b4fc8cb85680f3f"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 7712665,
+            "sha256": "8844367e7c914cb965478bbbac1a21274bf8649a7af68ded6f2ee383ddfe7f0f",
+            "archive": {
+              "size": 6896340,
+              "sha256": "65e7719125030c59ce66c893950c54d345505caabdc6798dc1d63912cd6d912b"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "blivre",
+        "name": "Bíblia Livre",
+        "abbreviation": "BLIVRE",
+        "language": "pt-BR",
+        "copyright": "© 2018 Diego Santos, Mario Sérgio e Marco Teles · CC BY 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "blivre-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 180,
+            "sha256": "78257314589d7d38d32604dd3a2742869ec23a2729f1471ef5417927723399ef",
+            "archive": {
+              "size": 148,
+              "sha256": "f2232394fb86b42f35fd3716baefab11e01d70eb468ae016354e33e2d980f114"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5321,
+            "sha256": "8a4f87ea91a79fd3106f39f57ec75274c9db0ecd2e508da1d947b0b38ba9298e",
+            "archive": {
+              "size": 850,
+              "sha256": "445a12d2fa655aae80e6d628d8723766391c1b0ae6d9c096d7d6d1e154772d15"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6403099,
+            "sha256": "e10a07c60e31e6467055bcbf4d234bad4a762d14834b95ebe9e909ac3b2879fc",
+            "archive": {
+              "size": 1458103,
+              "sha256": "3b53a7a201e77b3da4c24feaf146be145d3a2471ace6dcc19d2641a9c6bdb37b"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8242665,
+            "sha256": "0367647c6ad879d5f384c3a23f8029b19cbea0dff8e82c50e17bb671e64771a3",
+            "archive": {
+              "size": 7369102,
+              "sha256": "7be5577bbf33ef6d6e253978bc027f39179053a655ec1a25d7ae71f4e21f3486"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    },
+    {
+      "version": {
+        "id": "nbv-pt",
+        "name": "Biblica® Open Nova Bíblia Viva",
+        "abbreviation": "NBV",
+        "language": "pt-BR",
+        "copyright": "© 2007, 2010 Biblica, Inc. · CC BY-SA 4.0"
+      },
+      "manifest": {
+        "repository": "mduranx64/OpenBibleAI",
+        "revision": "nbv-pt-1",
+        "files": [
+          {
+            "name": "version.json",
+            "size": 177,
+            "sha256": "d79f08e11e96d087f4ef38f1c94486a99d7009ece7b248669f0d54646bb6d522",
+            "archive": {
+              "size": 149,
+              "sha256": "76227a2b0f38aaf7e12e2cb9bf8995b149af1961d7a90aeffe010a74f1cf40e4"
+            }
+          },
+          {
+            "name": "books.json",
+            "size": 5321,
+            "sha256": "8a4f87ea91a79fd3106f39f57ec75274c9db0ecd2e508da1d947b0b38ba9298e",
+            "archive": {
+              "size": 850,
+              "sha256": "445a12d2fa655aae80e6d628d8723766391c1b0ae6d9c096d7d6d1e154772d15"
+            }
+          },
+          {
+            "name": "verses.json",
+            "size": 6942706,
+            "sha256": "7cf3c106b2c652df42e49a39f6374992756c1e7b11f91580d84cf03079b62399",
+            "archive": {
+              "size": 1671661,
+              "sha256": "8baf847a1a014ed2e2a5810da2fb922492bbd7d47a761d68e784a8384e5925d9"
+            }
+          },
+          {
+            "name": "embeddings.bin",
+            "size": 8243460,
+            "sha256": "0d6b0e825e4d26643529cc18c13122a13c2983eececec4f28d0c5c9356837d04",
+            "archive": {
+              "size": 7381460,
+              "sha256": "8e6aade0ad58aa1953892c44a7bcc7658cd16a95ca6968f48e4aed7be052ddf8"
+            }
+          }
+        ],
+        "host": {
+          "gitHubRelease": {
+            "tag": "bibles"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -36,7 +36,9 @@
         { "path": "Local.xcconfig.example" },
         { "path": "Shared.xcconfig" },
       ],
-    }, {
+    },
+    { "kind": "group", "name": "Frameworks" },
+    {
       "kind": "group",
       "name": "Products",
       "children": [
@@ -53,6 +55,20 @@
       "product": "Products/OpenBibleAI.app",
       "product-type": "application",
       "build-phases": [
+        {
+          "kind": "script",
+          "name": "Generate build settings",
+          "input-paths": [
+            "$(SRCROOT)/Tools/generate_build_settings.sh",
+            "$(SRCROOT)/Config/Shared.xcconfig",
+          ],
+          "output-paths": [
+            "$(SRCROOT)/OpenBibleAI/Generated/BuildSettings.swift",
+          ],
+          "dependency-file": "$(DERIVED_FILE_DIR)/BuildSettings.d",
+          "shell": "/bin/sh",
+          "script": "\"$SRCROOT/Tools/generate_build_settings.sh\"\n",
+        },
         "compile-sources",
         "frameworks",
         "resources",
@@ -60,9 +76,6 @@
       "package-product-members": [
         {
           "product-name": "BibleAI",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "product-name": "BibleData",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "product-name": "BibleData",

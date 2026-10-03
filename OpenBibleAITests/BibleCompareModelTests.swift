@@ -13,7 +13,7 @@ struct BibleCompareModelTests {
     private static func entry(_ id: String) throws -> BibleCatalogEntry {
         BibleCatalogEntry(
             version: try BibleVersion(id: id, name: id.uppercased(), abbreviation: id.uppercased(), languageCode: "en", copyright: ""),
-            manifest: ModelManifest(repository: "owner/repo", revision: id, files: [], host: .gitHubRelease)
+            manifest: ModelManifest(repository: "owner/repo", revision: id, files: [], host: .gitHubRelease(tag: "bibles"))
         )
     }
 

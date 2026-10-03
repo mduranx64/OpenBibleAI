@@ -183,7 +183,7 @@ struct AppModelLibraryTests {
     private static func entry(_ id: String) throws -> BibleCatalogEntry {
         BibleCatalogEntry(
             version: try BibleVersion(id: id, name: id, abbreviation: id, languageCode: "en", copyright: ""),
-            manifest: ModelManifest(repository: "owner/repo", revision: id, files: [], host: .gitHubRelease)
+            manifest: ModelManifest(repository: "owner/repo", revision: id, files: [], host: .gitHubRelease(tag: "bibles"))
         )
     }
 
@@ -258,7 +258,7 @@ extension AppModel {
     ) {
         let entry = BibleCatalogEntry(
             version: try! BibleVersion(id: "kjv", name: "King James Version", abbreviation: "KJV", languageCode: "en", copyright: ""),
-            manifest: ModelManifest(repository: "owner/repo", revision: "test", files: [], host: .gitHubRelease)
+            manifest: ModelManifest(repository: "owner/repo", revision: "test", files: [], host: .gitHubRelease(tag: "bibles"))
         )
         let library = BibleLibraryModel(
             catalog: [entry],
