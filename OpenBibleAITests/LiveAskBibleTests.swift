@@ -24,6 +24,8 @@ struct LiveAskBibleTests {
         "¿Dónde sanó Jesús a un ciego?",
         "What is love according to Paul?",
         "¿Qué dice la Biblia sobre perdonar a los demás?",
+        "Onde Jesus nasceu?",
+        "O que é o amor segundo Paulo?",
     ]
 
     nonisolated private static let useSemantic =

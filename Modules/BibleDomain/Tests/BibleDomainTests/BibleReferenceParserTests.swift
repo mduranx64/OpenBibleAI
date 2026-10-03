@@ -76,4 +76,16 @@ struct BibleReferenceParserTests {
         let reference = try BibleReferenceParser.parse("John 999:999", books: books())
         #expect(reference == (try BibleReference(bookID: "JOH", chapter: 999, verse: 999)))
     }
+
+    @Test
+    func versionNamesWinOverAliases() throws {
+        // An alias naming another book never shadows the version's own name.
+        let books = [
+            try BibleBook(bookID: "JOB", name: "Job", canonicalOrder: 18),
+            try BibleBook(bookID: "JOH", name: "Juan", canonicalOrder: 43)
+        ]
+        let aliases = ["JOH": ["Job"], "JOB": ["Job"]]
+        #expect(try BibleReferenceParser.parse("Job 1:1", books: books, aliases: aliases).bookID == "JOB")
+        #expect(try BibleReferenceParser.parse("john 3:16", books: books, aliases: BibleBookNames.aliases).bookID == "JOH")
+    }
 }

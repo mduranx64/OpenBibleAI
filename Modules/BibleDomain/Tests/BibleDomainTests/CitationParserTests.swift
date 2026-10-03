@@ -75,4 +75,46 @@ struct CitationParserTests {
         let citations = CitationParser.citations(in: "John said to Luke 3 times; Johnny 3:16 is not a book.", books: try books())
         #expect(citations.isEmpty)
     }
+
+    // MARK: - Other languages
+
+    private func spanishBooks() throws -> [BibleBook] {
+        [
+            try BibleBook(bookID: "GEN", name: "Génesis", canonicalOrder: 1),
+            try BibleBook(bookID: "JOB", name: "Job", canonicalOrder: 18),
+            try BibleBook(bookID: "JOH", name: "Juan", canonicalOrder: 43),
+            try BibleBook(bookID: "1JO", name: "1 Juan", canonicalOrder: 62)
+        ]
+    }
+
+    @Test
+    func otherLanguagesNamesResolveAsAliases() throws {
+        let text = "Dios amó al mundo [John 3:16]; ver también 1 John 4:8 y [João 1:1]."
+        let citations = CitationParser.citations(in: text, books: try spanishBooks(), aliases: BibleBookNames.aliases)
+
+        #expect(citations.map { String(text[$0.range]) } == ["[John 3:16]", "1 John 4:8", "[João 1:1]"])
+        #expect(citations.map(\.items) == [
+            [.reference(try ref("JOH", 3, 16), endVerse: nil)],
+            [.reference(try ref("1JO", 4, 8), endVerse: nil)],
+            [.reference(try ref("JOH", 1, 1), endVerse: nil)]
+        ])
+        // Without aliases English names stay unrecognized, as before.
+        #expect(CitationParser.citations(in: "[John 3:16]", books: try spanishBooks()).map(\.items)
+            == [[.unrecognized("John 3:16")]])
+    }
+
+    @Test
+    func namesMatchWithOrWithoutAccents() throws {
+        let text = "En el principio [Genesis 1:1], como dice Genesis 1:2 y [Génesis 1:3]."
+        let citations = CitationParser.citations(in: text, books: try spanishBooks())
+
+        #expect(citations.map { String(text[$0.range]) } == ["[Genesis 1:1]", "Genesis 1:2", "[Génesis 1:3]"])
+        #expect(citations.allSatisfy { $0.items.first.map { if case .reference = $0 { true } else { false } } ?? false })
+    }
+
+    @Test
+    func aliasesForBooksTheVersionLacksAreUnrecognized() throws {
+        let citations = CitationParser.citations(in: "[Tobit 4:15] Tobit 4:16", books: try spanishBooks(), aliases: BibleBookNames.aliases)
+        #expect(citations.map(\.items) == [[.unrecognized("Tobit 4:15")]])
+    }
 }

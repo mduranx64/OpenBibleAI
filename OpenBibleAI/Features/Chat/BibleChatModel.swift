@@ -553,7 +553,8 @@ final class BibleChatModel {
         grounding: Set<BibleReference>
     ) async -> [ResolvedCitation] {
         var resolved: [ResolvedCitation] = []
-        for citation in CitationParser.citations(in: text, books: books) {
+        // Models often cite another language's book names ("John" while reading Juan).
+        for citation in CitationParser.citations(in: text, books: books, aliases: BibleBookNames.aliases) {
             var items: [ResolvedCitation.Item] = []
             for item in citation.items {
                 switch item {

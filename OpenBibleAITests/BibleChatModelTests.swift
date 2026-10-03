@@ -96,6 +96,34 @@ struct BibleChatModelTests {
     }
 
     @Test
+    func otherLanguagesBookNamesCiteTheSpanishVersion() async throws {
+        let spanish = InMemoryBibleRepository(
+            verses: [try BibleVerse(
+                reference: BibleReference(bookID: "MAT", chapter: 2, verse: 1),
+                text: "Y como fué nacido Jesús en Bethlehem de Judea en días del rey Herodes"
+            )],
+            books: [try BibleBook(bookID: "MAT", name: "Mateo", canonicalOrder: 40)],
+            language: "es"
+        )
+        let bible = BibleChatModel.Bible(
+            version: try BibleVersion(id: "rv1909", name: "Reina-Valera 1909", abbreviation: "RV1909", languageCode: "es", copyright: ""),
+            passages: spanish, verses: spanish, books: { try await spanish.books() }
+        )
+        let streamer = FakeStreamer(keywords: "nacido, Bethlehem", answer: ["Nació en Belén [Matthew 2:1], como dice Mateus 2:1."])
+        let model = BibleChatModel(
+            bible: { _ in bible },
+            engine: .init(makeStreamer: { streamer }, passageBudget: { 6_000 }),
+            store: InMemoryChatStore()
+        )
+
+        await model.send("¿Dónde nació Jesús?").value
+
+        let items = (model.citations[try lastAnswer(model).id] ?? []).flatMap(\.items)
+        #expect(items.map(\.status) == [.grounded, .grounded])
+        #expect(items.map(\.label) == ["Mateo 2:1", "Mateo 2:1"])
+    }
+
+    @Test
     func answersFromRetrievedPassagesAndVerifiesCitations() async throws {
         let streamer = FakeStreamer(
             keywords: "born, Bethlehem",

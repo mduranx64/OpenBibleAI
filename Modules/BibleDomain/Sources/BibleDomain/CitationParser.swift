@@ -22,9 +22,14 @@ public struct Citation: Equatable, Sendable {
 
 /// Finds citations in generated answers so they can be checked against the
 /// Bible and turned into links. Names must be full catalog names (the answer
-/// prompt asks for them); resolution reuses `BibleReferenceParser`.
+/// prompt asks for them) or `aliases` (book ID → names, e.g. English names
+/// while reading a Spanish version); resolution reuses `BibleReferenceParser`.
 public enum CitationParser {
-    public static func citations(in text: String, books: [BibleBook]) -> [Citation] {
+    public static func citations(
+        in text: String,
+        books: [BibleBook],
+        aliases: [String: [String]] = [:]
+    ) -> [Citation] {
         var result: [Citation] = []
         var searchStart = text.startIndex
 
@@ -43,12 +48,12 @@ public enum CitationParser {
                 .split(whereSeparator: { $0 == ";" || $0 == "," })
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
-                .map { item(for: $0, books: books) }
+                .map { item(for: $0, books: books, aliases: aliases) }
 
             result.append(Citation(range: open..<text.index(after: close), items: items))
         }
 
-        result += bareCitations(in: text, books: books, excluding: result.map(\.range))
+        result += bareCitations(in: text, books: books, aliases: aliases, excluding: result.map(\.range))
         return result.sorted { $0.range.lowerBound < $1.range.lowerBound }
     }
 
@@ -59,14 +64,20 @@ public enum CitationParser {
     private static func bareCitations(
         in text: String,
         books: [BibleBook],
+        aliases: [String: [String]],
         excluding claimed: [Range<String.Index>]
     ) -> [Citation] {
         var claimed = claimed
         var found: [Citation] = []
 
-        for book in books.sorted(by: { $0.name.count > $1.name.count }) {
+        let names = Set(books.map(\.name) + books.flatMap { aliases[$0.bookID, default: []] })
+        for name in names.sorted(by: { $0.count > $1.count }) {
             var searchStart = text.startIndex
-            while let nameRange = text.range(of: book.name, range: searchStart..<text.endIndex) {
+            while let nameRange = text.range(
+                of: name,
+                options: .diacriticInsensitive,
+                range: searchStart..<text.endIndex
+            ) {
                 searchStart = nameRange.upperBound
                 guard nameRange.lowerBound == text.startIndex
                         || !isWordCharacter(text[text.index(before: nameRange.lowerBound)]),
@@ -76,7 +87,7 @@ public enum CitationParser {
                 let range = nameRange.lowerBound..<end
                 guard !claimed.contains(where: { $0.overlaps(range) }) else { continue }
 
-                let item = item(for: String(text[range]), books: books)
+                let item = item(for: String(text[range]), books: books, aliases: aliases)
                 guard case .reference = item else { continue }
                 claimed.append(range)
                 found.append(Citation(range: range, items: [item]))
@@ -116,7 +127,7 @@ public enum CitationParser {
         character.isLetter || character.isNumber
     }
 
-    private static func item(for part: String, books: [BibleBook]) -> Citation.Item {
+    private static func item(for part: String, books: [BibleBook], aliases: [String: [String]]) -> Citation.Item {
         guard let space = part.lastIndex(where: \.isWhitespace) else { return .unrecognized(part) }
         let name = part[..<space].trimmingCharacters(in: .whitespaces)
         let position = part[part.index(after: space)...]
@@ -132,7 +143,7 @@ public enum CitationParser {
         let last = verses.count == 2 ? Int(verses[1]) : nil
         if verses.count == 2, (last ?? 0) < first { return .unrecognized(part) }
 
-        guard let reference = try? BibleReferenceParser.parse("\(name) \(chapter):\(first)", books: books)
+        guard let reference = try? BibleReferenceParser.parse("\(name) \(chapter):\(first)", books: books, aliases: aliases)
         else { return .unrecognized(part) }
 
         return .reference(reference, endVerse: last == first ? nil : last)
