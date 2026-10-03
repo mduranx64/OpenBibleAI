@@ -94,7 +94,8 @@ Every openly licensed complete Bible on eBible.org in English (22, with the KJV)
 - [x] `bibles` release with 116 verified assets and the signed catalog (sequence 1, Publish catalog run 37129793167); live install of KJV, BSB and Bíblia Livre; `bible-kjv-1` and `bible-rv1909-1` deleted.
 - [ ] Live-check a remote catalog update in the app: publish catalog sequence 2 (adds the Douay-Rheims; assets staged by `make_release.py dra`).
 - [x] "Update available" for an installed version whose catalog entry moved to a new package revision (2026-10-03, `1f1f812`). Live check against a test release still open.
-- [x] Deuterocanon support and the Douay-Rheims (2026-10-03, `4676935`; not yet published). WEB Catholic blocked: eBible's VPL has no Genesis.
+- [x] Deuterocanon support and the Douay-Rheims (2026-10-03, `4676935`), plus the WEB British Edition with Deuterocanon (`webbe-dc`, catalog sequence 3); neither published yet. WEB Catholic blocked: eBible's VPL has no Genesis.
+- [ ] Spanish/Portuguese Catholic canon: only eBible's drafts (spablm, spabll, porbrbsl, 81 books) have it; ship with `en-catholic-greek`-style tables once final. Ask Reina-Valera Gómez and Valera 1602 Purificada for written permission; LBLA/NBLH need a Lockman license.
 - [ ] Revisit draft texts (spablm, spabll, porbrbsl) when finalized; WEB Catholic once its VPL includes Genesis.
 - [ ] Request licenses: RVR1960 (American Bible Society for Sociedades Bíblicas Unidas) and a modern Almeida (Sociedade Bíblica do Brasil); add them through `add_version.sh` once granted.
 - [x] Live-check the chat in Spanish/Portuguese versions; recognize other languages' book names in citations (2026-10-03, `787c330`).
