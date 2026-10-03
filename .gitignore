@@ -37,3 +37,7 @@ Tools/BibleImport/catalog.json.sig
 
 ## Generated from Config/*.xcconfig by Tools/generate_build_settings.sh
 OpenBibleAI/Generated/
+
+# Xcode writes this when the project is opened without the workspace; the
+# workspace lockfile (OpenBibleAI.xcworkspace/xcshareddata/swiftpm) is the one.
+OpenBibleAI.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
