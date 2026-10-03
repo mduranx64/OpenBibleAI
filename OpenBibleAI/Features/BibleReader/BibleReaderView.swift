@@ -18,8 +18,13 @@ struct BibleReaderView: View {
     let compare: BibleCompareModel
     let version: BibleVersion
     let switchVersion: (String) -> Void
+    let appNavigation: AppNavigation
 
-    private enum SearchMode: CaseIterable, Identifiable {
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+    #endif
+
+    enum SearchMode: CaseIterable, Identifiable {
         case reference
         case text
 
@@ -33,18 +38,17 @@ struct BibleReaderView: View {
         }
     }
 
-    @State private var navigation: BibleReaderNavigationModel
-    @State private var searchText = ""
-    @State private var textQuery = ""
-    @State private var searchMode = SearchMode.reference
+    @State var navigation: BibleReaderNavigationModel
+    @State var searchText = ""
+    @State var textQuery = ""
+    @State var searchMode = SearchMode.reference
     /// Drill-down: the book list, or the chapter grid of the selected book.
     @State private var showsBookList = true
     @State private var bookFilter = ""
-    /// A verse opened from the chat (citation or source); it is shown in
-    /// the reader but not attached to the next question.
     /// The selection revision produced by opening a verse from the chat
     /// (citation or source); that selection is shown but not attached.
-    @State private var chatOpenRevision: Int?
+    @State var chatOpenRevision: Int?
+    @State var isShowingSettings = false
 
     /// Changes on every verse selection, including choosing the same verse
     /// again, and when the selected verse's chapter finishes loading.
@@ -53,11 +57,10 @@ struct BibleReaderView: View {
         let reference: BibleReference?
     }
 
-    private typealias ChapterSelection = BibleReaderNavigationModel.ChapterSelection
-    private var selectedBookID: String? { navigation.selectedBookID }
-    private var selectedChapter: ChapterSelection? { navigation.selectedChapter }
-    private var selectedReference: BibleReference? { navigation.selectedReference }
-    private var activeReference: BibleReference? { navigation.activeReference }
+    typealias ChapterSelection = BibleReaderNavigationModel.ChapterSelection
+    var selectedBookID: String? { navigation.selectedBookID }
+    var selectedChapter: ChapterSelection? { navigation.selectedChapter }
+    var activeReference: BibleReference? { navigation.activeReference }
 
     init(
         aiEngine: AIEngineModel,
@@ -70,8 +73,10 @@ struct BibleReaderView: View {
         library: BibleLibraryModel,
         compare: BibleCompareModel,
         version: BibleVersion,
-        switchVersion: @escaping (String) -> Void
+        switchVersion: @escaping (String) -> Void,
+        appNavigation: AppNavigation
     ) {
+        self.appNavigation = appNavigation
         self.library = library
         self.compare = compare
         self.version = version
@@ -87,23 +92,14 @@ struct BibleReaderView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            sidebarContent
-            .safeAreaInset(edge: .top) { searchControls }
-            .onChange(of: selectedBookID) { _, bookID in
-                // Search, restoration and cross-book steps also change the
-                // book; show its chapters whenever that happens.
-                if bookID != nil { showsBookList = false }
-            }
-            .navigationTitle("Bible")
-            .navigationSplitViewColumnWidth(
-                min: 180,
-                ideal: 240,
-                max: 320
-            )
+        layout
             .task {
                 await catalogModel.loadBooks()
                 await navigation.restoreReadingPosition()
+                // A book chosen while restoring stays where the user put it.
+                if selectedChapter != nil || selectedBookID == nil {
+                    appNavigation.positionRestored(hasChapter: selectedChapter != nil)
+                }
             }
             .task(id: selectedBookID) {
                 guard let selectedBookID else {
@@ -122,10 +118,62 @@ struct BibleReaderView: View {
                     chapter: selectedChapter.chapter
                 )
             }
+            .onDisappear {
+                navigation.cancelSearch()
+                textSearchModel.cancel()
+            }
+            .onChange(of: searchMode) { _, _ in
+                navigation.cancelSearch()
+                textSearchModel.cancel()
+            }
+            .onChange(of: VerseSelection(revision: navigation.selectionRevision, reference: activeReference)) { _, selection in
+                // A verse you choose attaches to the next chat question (again
+                // after ✕ when chosen again); a verse opened from the chat only
+                // shows in the reader.
+                guard let reference = selection.reference, selection.revision != chatOpenRevision else { return }
+                let chapterVerses = loadedChapterVerses(for: reference)
+                guard let verse = chapterVerses.first(where: { $0.reference == reference }) else { return }
+                chatModel.attach(
+                    verse: verse,
+                    bookName: bookName(for: reference.bookID) ?? reference.bookID,
+                    chapterVerses: chapterVerses
+                )
+            }
+    }
+
+    @ViewBuilder
+    private var layout: some View {
+        #if os(iOS)
+        if horizontalSizeClass == .compact {
+            phoneLayout
+        } else {
+            padLayout
+        }
+        #else
+        splitLayout
+        #endif
+    }
+
+    /// Mac and visionOS: books, reader and chat side by side.
+    private var splitLayout: some View {
+        NavigationSplitView {
+            sidebarContent
+            .safeAreaInset(edge: .top) { searchControls }
+            .onChange(of: selectedBookID) { _, bookID in
+                // Search, restoration and cross-book steps also change the
+                // book; show its chapters whenever that happens.
+                if bookID != nil { showsBookList = false }
+            }
+            .navigationTitle("Bible")
+            .navigationSplitViewColumnWidth(
+                min: 180,
+                ideal: 240,
+                max: 320
+            )
         } content: {
-            chapterReadingContent
+            readerContent
                 .safeAreaInset(edge: .bottom) {
-                    chapterNavigationControls
+                    ChapterNavigationBar(navigation: navigation)
                 }
                 // The reading column needs a floor: without one it was
                 // squeezed to ~200 pt while the study panel took the rest.
@@ -141,127 +189,41 @@ struct BibleReaderView: View {
                     }
                 }
         } detail: {
-            BibleChatView(
-                model: chatModel,
-                engine: aiEngine,
-                semanticSearch: semanticSearch,
-                open: openFromChat
-            )
+            chatView()
             // One rule for every study-panel state, capped so spare width
             // goes to the reading column instead.
             .navigationSplitViewColumnWidth(min: 320, ideal: 380, max: 480)
         }
         .navigationSplitViewStyle(.balanced)
-        .onDisappear {
-            navigation.cancelSearch()
-            textSearchModel.cancel()
-        }
-        .onChange(of: searchMode) { _, _ in
-            navigation.cancelSearch()
-            textSearchModel.cancel()
-        }
-        .onChange(of: VerseSelection(revision: navigation.selectionRevision, reference: activeReference)) { _, selection in
-            // A verse you choose attaches to the next chat question (again
-            // after ✕ when chosen again); a verse opened from the chat only
-            // shows in the reader.
-            guard let reference = selection.reference, selection.revision != chatOpenRevision else { return }
-            let chapterVerses = loadedChapterVerses(for: reference)
-            guard let verse = chapterVerses.first(where: { $0.reference == reference }) else { return }
-            chatModel.attach(
-                verse: verse,
-                bookName: bookName(for: reference.bookID) ?? reference.bookID,
-                chapterVerses: chapterVerses
-            )
-        }
     }
-    
+
     @ViewBuilder
-    private var sidebarContent: some View {
+    var sidebarContent: some View {
         if searchMode == .text {
             List {
                 Section("Results") {
-                    textSearchResultsContent
+                    TextSearchResultRows(model: textSearchModel, catalogModel: catalogModel) { verse in
+                        navigation.open(verse)
+                    }
                 }
             }
         } else if showsBookList || selectedBookID == nil {
-            bookListContent
+            bookList { bookID in
+                navigation.selectBook(bookID)
+                showsBookList = false
+            }
         } else {
             chapterGridContent
         }
     }
 
-    private var bookListContent: some View {
-        List {
-            TextField("Filter books", text: $bookFilter)
-                .textFieldStyle(.roundedBorder)
-                .accessibilityIdentifier("bookFilterField")
-
-            switch catalogModel.state {
-            case .idle, .loading:
-                ProgressView("Loading books…")
-
-            case let .loaded(books):
-                let visible = filteredBooks(books)
-                if visible.isEmpty {
-                    Text(books.isEmpty ? "No books available" : "No books match")
-                        .foregroundStyle(.secondary)
-                }
-
-                ForEach(BibleBook.Testament.allCases, id: \.self) { testament in
-                    let group = visible.filter { $0.testament == testament }
-                    if !group.isEmpty {
-                        Section(testament == .old ? "Old Testament" : "New Testament") {
-                            ForEach(group) { book in
-                                bookRow(book)
-                            }
-                        }
-                    }
-                }
-
-            case .failed:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Couldn’t load books")
-                        .foregroundStyle(.secondary)
-
-                    Button("Retry") {
-                        Task {
-                            await catalogModel.loadBooks()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func bookRow(_ book: BibleBook) -> some View {
-        Button {
-            navigation.selectBook(book.bookID)
-            showsBookList = false
-        } label: {
-            HStack {
-                Label(book.name, systemImage: "book.closed")
-
-                Spacer()
-
-                if selectedBookID == book.bookID {
-                    Image(systemName: "checkmark")
-                        .accessibilityHidden(true)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("book-\(book.bookID)")
-        .accessibilityAddTraits(
-            selectedBookID == book.bookID ? .isSelected : []
+    func bookList(select: @escaping (String) -> Void) -> some View {
+        BookListView(
+            catalogModel: catalogModel,
+            selectedBookID: selectedBookID,
+            filter: $bookFilter,
+            select: select
         )
-    }
-
-    /// Case- and diacritic-insensitive match on the book name.
-    private func filteredBooks(_ books: [BibleBook]) -> [BibleBook] {
-        let filter = bookFilter.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !filter.isEmpty else { return books }
-        return books.filter { $0.name.localizedStandardContains(filter) }
     }
 
     @ViewBuilder
@@ -284,36 +246,8 @@ struct BibleReaderView: View {
                             .font(.headline)
                     }
 
-                    switch catalogModel.chaptersState {
-                    case let .loaded(bookID, chapters) where bookID == selectedBookID:
-                        if chapters.isEmpty {
-                            Text("No chapters available")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            LazyVGrid(
-                                columns: [GridItem(.adaptive(minimum: 44), spacing: 8)],
-                                spacing: 8
-                            ) {
-                                ForEach(chapters, id: \.self) { chapter in
-                                    chapterCell(chapter, in: selectedBookID)
-                                }
-                            }
-                        }
-
-                    case let .failed(bookID, _) where bookID == selectedBookID:
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Couldn’t load chapters")
-                                .foregroundStyle(.secondary)
-
-                            Button("Retry") {
-                                Task {
-                                    await catalogModel.loadChapters(in: selectedBookID)
-                                }
-                            }
-                        }
-
-                    default:
-                        ProgressView("Loading chapters…")
+                    chapterGrid(for: selectedBookID) { chapter in
+                        navigation.selectChapter(chapter, in: selectedBookID)
                     }
                 }
                 .padding(12)
@@ -321,163 +255,50 @@ struct BibleReaderView: View {
         }
     }
 
-    private func chapterCell(_ chapter: Int, in bookID: String) -> some View {
-        let isSelected = selectedChapter == ChapterSelection(bookID: bookID, chapter: chapter)
-
-        return Button {
-            selectChapter(chapter, in: bookID)
-        } label: {
-            Text("\(chapter)")
-                .monospacedDigit()
-                .frame(maxWidth: .infinity, minHeight: 32)
-                .foregroundStyle(isSelected ? Color.white : Color.primary)
-                .background(
-                    isSelected ? Color.accentColor : Color.secondary.opacity(0.12),
-                    in: RoundedRectangle(cornerRadius: 6)
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Chapter \(chapter)")
-        .accessibilityIdentifier("chapter-\(bookID)-\(chapter)")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    func chapterGrid(for bookID: String, select: @escaping (Int) -> Void) -> some View {
+        ChapterGridView(
+            catalogModel: catalogModel,
+            bookID: bookID,
+            selectedChapter: selectedChapter,
+            select: select
+        )
     }
 
     /// Breadcrumb for the reading pane, e.g. "John 3".
-    private var locationTitle: String {
+    var locationTitle: String {
         guard let selectedChapter else { return String(localized: "Bible") }
         let name = bookName(for: selectedChapter.bookID) ?? selectedChapter.bookID
         return "\(name) \(selectedChapter.chapter)"
     }
 
-    @ViewBuilder
-    private var chapterReadingContent: some View {
-        if let selectedChapter {
-            switch catalogModel.versesState {
-            case let .loaded(bookID, chapter, verses)
-                where bookID == selectedChapter.bookID
-                    && chapter == selectedChapter.chapter:
-                if verses.isEmpty {
-                    ContentUnavailableView(
-                        "No Verses Available",
-                        systemImage: "book.closed"
-                    )
-                } else if compare.isComparing(primaryVersionID: version.id) {
-                    BibleCompareView(
-                        model: compare,
-                        library: library,
-                        primary: version,
-                        title: locationTitle,
-                        bookID: bookID,
-                        chapter: chapter,
-                        verses: verses,
-                        selectedReference: selectedReference,
-                        selectionRevision: navigation.selectionRevision,
-                        selectVerse: navigation.selectVerse
-                    )
-                    .id(selectedChapter)
-                } else {
-                    BibleChapterReadingView(
-                        title: locationTitle,
-                        verses: verses,
-                        selectedReference: selectedReference,
-                        selectionRevision: navigation.selectionRevision,
-                        selectVerse: navigation.selectVerse
-                    )
-                    .id(selectedChapter)
-                }
-
-            case let .failed(bookID, chapter, _)
-                where bookID == selectedChapter.bookID
-                    && chapter == selectedChapter.chapter:
-                VStack(spacing: 12) {
-                    Text("Couldn’t load this chapter")
-                        .font(.headline)
-
-                    Button("Retry") {
-                        Task {
-                            await catalogModel.loadVerses(
-                                in: selectedChapter.bookID,
-                                chapter: selectedChapter.chapter
-                            )
-                        }
-                    }
-                }
-
-            default:
-                ProgressView("Loading chapter…")
-            }
-        } else {
-            ContentUnavailableView(
-                "Select a Chapter",
-                systemImage: "book.closed",
-                description: Text(
-                    "Choose a book and chapter to begin reading."
-                )
-            )
-        }
-    }
-    
-    @ViewBuilder
-    private var chapterNavigationControls: some View {
-        if selectedChapter != nil {
-            HStack {
-                Button {
-                    Task { await navigation.goToPreviousChapter() }
-                } label: {
-                    Label("Previous Chapter", systemImage: "chevron.left")
-                }
-                .disabled(!navigation.canGoToPreviousChapter)
-                .keyboardShortcut("[", modifiers: .command)
-                .help("Previous chapter (⌘[)")
-
-                Spacer()
-
-                Button {
-                    navigation.selectAdjacentVerse(-1)
-                } label: {
-                    Label("Previous Verse", systemImage: "chevron.up")
-                }
-                .labelStyle(.iconOnly)
-                .keyboardShortcut(.upArrow, modifiers: .option)
-                .help("Previous verse (⌥↑)")
-
-                Button {
-                    navigation.selectAdjacentVerse(1)
-                } label: {
-                    Label("Next Verse", systemImage: "chevron.down")
-                }
-                .labelStyle(.iconOnly)
-                .keyboardShortcut(.downArrow, modifiers: .option)
-                .help("Next verse (⌥↓)")
-
-                Spacer()
-
-                Button {
-                    Task { await navigation.goToNextChapter() }
-                } label: {
-                    Label("Next Chapter", systemImage: "chevron.right")
-                }
-                .disabled(!navigation.canGoToNextChapter)
-                .keyboardShortcut("]", modifiers: .command)
-                .help("Next chapter (⌘])")
-            }
-            .buttonStyle(.bordered)
-            .padding()
-            .background(.bar)
-        }
+    var readerContent: some View {
+        ChapterReaderContent(
+            catalogModel: catalogModel,
+            navigation: navigation,
+            compare: compare,
+            library: library,
+            version: version,
+            title: locationTitle
+        )
     }
 
-    private func openFromChat(_ reference: BibleReference) {
+    func chatView(showsHeader: Bool = true) -> some View {
+        BibleChatView(
+            model: chatModel,
+            engine: aiEngine,
+            semanticSearch: semanticSearch,
+            showsHeader: showsHeader,
+            open: openFromChat
+        )
+    }
+
+    func openFromChat(_ reference: BibleReference) {
         navigation.open(reference)
         chatOpenRevision = navigation.selectionRevision
+        appNavigation.showReader()
     }
 
-    private func selectChapter(_ chapter: Int, in bookID: String) {
-        navigation.selectChapter(chapter, in: bookID)
-    }
-
-    private var searchControls: some View {
+    var searchControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             Picker("Search type", selection: $searchMode) {
                 ForEach(SearchMode.allCases) { mode in
@@ -558,73 +379,12 @@ struct BibleReaderView: View {
         }
     }
 
-    @ViewBuilder
-    private var textSearchResultsContent: some View {
-        switch textSearchModel.state {
-        case .idle:
-            Text("Search the Bible text above.")
-                .foregroundStyle(.secondary)
-        case .tooShort:
-            Text("Enter at least two letters.")
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("textSearchStatus")
-        case .loading:
-            ProgressView("Searching…")
-        case let .failed(_, message):
-            Text(message)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("textSearchStatus")
-        case let .loaded(_, result):
-            if result.verses.isEmpty {
-                Text("No verses match.")
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("textSearchStatus")
-            } else {
-                Text(textSearchSummary(for: result))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("textSearchStatus")
-                ForEach(result.verses, id: \.reference) { verse in
-                    Button {
-                        navigation.open(verse)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(referenceLabel(for: verse.reference))
-                                .font(.caption.bold())
-                            Text(verse.text)
-                                .lineLimit(3)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier(
-                        "textSearchResult-\(verse.reference.bookID)-\(verse.reference.chapter)-\(verse.reference.verse)"
-                    )
-                }
-            }
-        }
-    }
-
-    private func textSearchSummary(for result: BibleTextSearchResult) -> String {
-        if result.isTruncated {
-            return String(localized: "Showing first \(result.verses.count) of \(result.totalCount) verses")
-        }
-        return String(localized: "\(result.totalCount) verses")
-    }
-
-    private func referenceLabel(for reference: BibleReference) -> String {
-        let name = bookName(for: reference.bookID) ?? reference.bookID
-        return "\(name) \(reference.chapter):\(reference.verse)"
-    }
-
-    private func bookName(for bookID: String) -> String? {
-        guard case let .loaded(books) = catalogModel.state else { return nil }
-        return books.first(where: { $0.bookID == bookID })?.name
+    func bookName(for bookID: String) -> String? {
+        catalogModel.bookName(for: bookID)
     }
 
     /// The loaded chapter's verses, only if they belong to `reference`.
-    private func loadedChapterVerses(for reference: BibleReference) -> [BibleVerse] {
+    func loadedChapterVerses(for reference: BibleReference) -> [BibleVerse] {
         guard case let .loaded(bookID, chapter, verses) = catalogModel.versesState,
               bookID == reference.bookID, chapter == reference.chapter
         else { return [] }

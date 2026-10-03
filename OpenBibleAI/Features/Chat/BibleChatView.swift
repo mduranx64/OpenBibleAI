@@ -9,6 +9,9 @@ struct BibleChatView: View {
     let model: BibleChatModel
     let engine: AIEngineModel
     let semanticSearch: SemanticSearchModel
+    /// The in-panel header (Mac, iPad inspector). Without it the title and
+    /// buttons go in the enclosing navigation bar (iPhone Chat tab).
+    var showsHeader = true
     /// Opens a verse in the reader (citations and Sources).
     let open: (BibleReference) -> Void
 
@@ -21,10 +24,16 @@ struct BibleChatView: View {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var title: String {
+        model.conversation.title.isEmpty ? String(localized: "Bible Chat") : model.conversation.title
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            header
-            Divider()
+            if showsHeader {
+                header
+                Divider()
+            }
             if engine.choice.isUsable {
                 thread
                 Divider()
@@ -39,46 +48,79 @@ struct BibleChatView: View {
             return .handled
         })
         .task { await model.loadSummaries() }
+        #if os(iOS)
+        .modifier(NavigationBarChrome(isActive: !showsHeader, title: title) {
+            historyButton
+            newChatButton
+        })
+        #endif
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack {
-            Text(model.conversation.title.isEmpty ? String(localized: "Bible Chat") : model.conversation.title)
+            Text(title)
                 .font(.headline)
                 .lineLimit(1)
                 .accessibilityIdentifier("chatTitle")
             Spacer()
-            Button {
-                isShowingHistory = true
-            } label: {
-                Label("Chats", systemImage: "clock.arrow.circlepath")
-            }
-            .help("Saved chats")
-            .accessibilityIdentifier("chatHistoryButton")
-            .popover(isPresented: $isShowingHistory) {
-                ChatHistoryView(model: model) { id in
-                    isShowingHistory = false
-                    Task { await model.open(id) }
-                }
-            }
-
-            Button {
-                model.newChat()
-                text = ""
-            } label: {
-                Label("New Chat", systemImage: "square.and.pencil")
-            }
-            .help("New chat")
-            .keyboardShortcut("n", modifiers: [.command, .shift])
-            .disabled(model.conversation.messages.isEmpty)
-            .accessibilityIdentifier("newChatButton")
+            historyButton
+            newChatButton
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.borderless)
         .padding(.horizontal)
         .padding(.vertical, 10)
+    }
+
+    private var historyButton: some View {
+        Button {
+            isShowingHistory = true
+        } label: {
+            Label("Chats", systemImage: "clock.arrow.circlepath")
+        }
+        .help("Saved chats")
+        .accessibilityIdentifier("chatHistoryButton")
+        #if os(iOS)
+        // A popover would be a sheet on iPhone anyway; this one has a title
+        // and Done, and stops at half height.
+        .sheet(isPresented: $isShowingHistory) {
+            NavigationStack {
+                ChatHistoryView(model: model, open: openSaved)
+                    .navigationTitle("Chats")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { isShowingHistory = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
+        #else
+        .popover(isPresented: $isShowingHistory) {
+            ChatHistoryView(model: model, open: openSaved)
+        }
+        #endif
+    }
+
+    private var newChatButton: some View {
+        Button {
+            model.newChat()
+            text = ""
+        } label: {
+            Label("New Chat", systemImage: "square.and.pencil")
+        }
+        .help("New chat")
+        .keyboardShortcut("n", modifiers: [.command, .shift])
+        .disabled(model.conversation.messages.isEmpty)
+        .accessibilityIdentifier("newChatButton")
+    }
+
+    private func openSaved(_ id: UUID) {
+        isShowingHistory = false
+        Task { await model.open(id) }
     }
 
     // MARK: - Thread
@@ -103,6 +145,9 @@ struct BibleChatView: View {
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            #if os(iOS)
+            .scrollDismissesKeyboard(.interactively)
+            #endif
             .onChange(of: model.conversation.messages.last?.text) { _, _ in
                 proxy.scrollTo(Self.bottomID, anchor: .bottom)
             }
@@ -357,7 +402,34 @@ struct ChatHistoryView: View {
                 }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 280, minHeight: 320)
+        #endif
         .task { await model.loadSummaries() }
     }
 }
+
+#if os(iOS)
+/// Puts the chat's title and buttons in the navigation bar when the panel
+/// has no header of its own.
+private struct NavigationBarChrome<Buttons: View>: ViewModifier {
+    let isActive: Bool
+    let title: String
+    @ViewBuilder let buttons: () -> Buttons
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        buttons()
+                    }
+                }
+        } else {
+            content
+        }
+    }
+}
+#endif

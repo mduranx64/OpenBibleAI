@@ -18,7 +18,10 @@ struct ContentView: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
-    #if !os(macOS)
+    /// Tabs and stacks on iPhone and iPad; kept across version switches.
+    @State private var appNavigation = AppNavigation()
+
+    #if os(visionOS)
     @State private var isShowingSettings = false
     #endif
 
@@ -61,7 +64,8 @@ struct ContentView: View {
                     library: appModel.library,
                     compare: compare,
                     version: session.version,
-                    switchVersion: { id in Task { await appModel.switchVersion(to: id) } }
+                    switchVersion: { id in Task { await appModel.switchVersion(to: id) } },
+                    appNavigation: appNavigation
                 )
                 // A new version gets fresh reader state; the saved book and
                 // chapter are restored from the position store.
@@ -87,7 +91,9 @@ struct ContentView: View {
                 }
             }
         }
+        #if os(macOS)
         .frame(minWidth: 900, minHeight: 480)
+        #endif
         .task {
             #if DEBUG
             await UITestBibles.preinstall(into: appModel.library)
@@ -117,7 +123,7 @@ struct ContentView: View {
                 break
             }
         }
-        #if !os(macOS)
+        #if os(visionOS)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {

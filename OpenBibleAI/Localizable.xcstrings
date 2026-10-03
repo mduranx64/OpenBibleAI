@@ -132,6 +132,22 @@
         }
       }
     },
+    "All words, any order. Use quotes for a phrase. For a verse, type a reference like John 3:16." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas las palabras, en cualquier orden. Usa comillas para una frase. Para un versículo, escribe una referencia como Juan 3:16."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas as palavras, em qualquer ordem. Use aspas para uma frase. Para um versículo, digite uma referência como João 3:16."
+          }
+        }
+      }
+    },
     "Answers are generated on this device and may be wrong. Check important points against the text." : {
       "localizations" : {
         "es" : {
@@ -176,6 +192,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A Apple Intelligence ainda está preparando o modelo. Tente novamente mais tarde."
+          }
+        }
+      }
+    },
+    "Ask about %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preguntar sobre %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perguntar sobre %@"
           }
         }
       }
@@ -308,6 +340,22 @@
         }
       }
     },
+    "Bible version: %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión de la Biblia: %@"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versão da Bíblia: %@"
+          }
+        }
+      }
+    },
     "Bibles" : {
       "localizations" : {
         "es" : {
@@ -400,6 +448,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Os números de capítulo devem ser maiores que zero."
+          }
+        }
+      }
+    },
+    "Chapters show these versions verse by verse under the reading version." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los capítulos muestran estas versiones versículo por versículo bajo la versión que lees."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Os capítulos mostram estas versões versículo por versículo abaixo da versão que você lê."
+          }
+        }
+      }
+    },
+    "Chat" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat"
           }
         }
       }
@@ -1130,6 +1210,38 @@
         }
       }
     },
+    "John 3:16 or words" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Juan 3:16 o palabras"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "João 3:16 ou palavras"
+          }
+        }
+      }
+    },
+    "Library" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Biblioteca"
+          }
+        }
+      }
+    },
     "Loading Bible…" : {
       "localizations" : {
         "es" : {
@@ -1670,6 +1782,38 @@
         }
       }
     },
+    "Read" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leer"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ler"
+          }
+        }
+      }
+    },
+    "Reading" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leyendo"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lendo"
+          }
+        }
+      }
+    },
     "Reference" : {
       "localizations" : {
         "es" : {
@@ -1762,6 +1906,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Conversas salvas"
+          }
+        }
+      }
+    },
+    "Search" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar"
           }
         }
       }
@@ -2272,6 +2432,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ative a Apple Intelligence nos Ajustes para estudar com IA."
+          }
+        }
+      }
+    },
+    "Turned off. Turn on Apple Intelligence in Settings to use Apple’s model." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado. Activa Apple Intelligence en Ajustes para usar el modelo de Apple."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desativado. Ative a Apple Intelligence em Ajustes para usar o modelo da Apple."
           }
         }
       }

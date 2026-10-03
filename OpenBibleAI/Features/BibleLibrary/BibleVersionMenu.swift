@@ -36,8 +36,15 @@ struct BibleVersionMenu: View {
             }
             .accessibilityIdentifier("manageBiblesButton")
         } label: {
+            #if os(iOS)
+            // iOS bar buttons show only a label's icon; the abbreviation
+            // is what tells versions apart.
+            Text(current.abbreviation)
+                .accessibilityLabel("Bible version: \(current.abbreviation)")
+            #else
             Label(current.abbreviation, systemImage: "book")
                 .labelStyle(.titleAndIcon)
+            #endif
         }
         .help("Bible version")
         .accessibilityIdentifier("versionMenu")

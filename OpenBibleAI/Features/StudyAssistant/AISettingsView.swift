@@ -74,7 +74,11 @@ struct AISettingsView: View {
         case .available:
             "Available and used for AI study."
         case .unavailable(.appleIntelligenceNotEnabled):
+            #if os(macOS)
             "Turned off. Turn on Apple Intelligence in System Settings to use Apple’s model."
+            #else
+            "Turned off. Turn on Apple Intelligence in Settings to use Apple’s model."
+            #endif
         case .unavailable(.modelNotReady):
             "Preparing its model. This can take a while after turning it on."
         case .unavailable(.deviceNotEligible):
