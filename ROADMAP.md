@@ -86,13 +86,18 @@ Acceptance criteria:
 
 Three 1024 px visual concepts, their hand-held variants, three Bible + AI treatments of the hand-held First Light concept, and twelve holographic Sculpted Book treatments are in `Design/AppIconConcepts/`, with small-size/mask comparison pages. Miguel selected `03-sculpted-book-original-pose-elegant-style.png`, which applies the elegant held-icon style to the original sculpted Bible and cupped-hand composition. That image now fills the iOS/iPadOS and macOS `AppIcon` slots. A matching two-layer `AppIconVision` image stack is selected for visionOS. The macOS app build and direct iOS/visionOS asset compilation passed; full iOS and visionOS app builds remain blocked by existing platform source errors documented in `MEMORY.md`. Editable vector artwork, appearance variants, and live platform review remain future polish.
 
-## 4b. Bible versions — next steps
+## 4b. Bible versions — 29 versions, one release, signed catalog (2026-10-03, implemented, NOT committed or published)
 
-- [ ] Publish `bible-kjv-1` and `bible-rv1909-1` as GitHub releases; until then the release app can't download a Bible.
-- [ ] Request licenses: RVR1960 (American Bible Society for Sociedades Bíblicas Unidas) and a modern Almeida (Sociedade Bíblica do Brasil); add them through the same pipeline once granted.
-- [ ] Find a verified public-domain Almeida 1911 source, or decide on another Portuguese text.
+Every openly licensed complete Bible on eBible.org in English (22, with the KJV), Spanish (5, with the RV1909) and Portuguese (2) is converted and indexed; drafts, Catholic-canon, incomplete and copyrighted texts are listed with reasons in DEVELOPMENT. Packages are published as assets of one `bibles` release (`<id>-<n>-<file>`, compressed where it helps; int8 verse index), about 8.8 MB per version instead of 22.5 MB. A signed remote catalog (Ed25519, key in the Keychain and the `release` GitHub environment, public key from `Local.xcconfig` through generated `BuildSettings`) lets new versions appear without an app update. Packages are no longer committed except the `kjv`/`rv1909` fixtures.
+
+- [ ] Generate the catalog signing key, back it up, set `BIBLE_CATALOG_PUBLIC_KEY` and the `CATALOG_SIGNING_KEY` secret; create the `release` environment.
+- [ ] Create the `bibles` release, upload the 116 assets, publish the signed catalog; verify (`TEST_RUNNER_OPENBIBLE_VERIFY_RELEASES=1`) and live-install; then delete `bible-kjv-1` and `bible-rv1909-1`.
+- [ ] "Update available" for an installed version whose catalog entry moved to a new package revision.
+- [ ] Deuterocanon support (Douay-Rheims, WEB Catholic); revisit draft texts (spablm, spabll, porbrbsl) when finalized.
+- [ ] Request licenses: RVR1960 (American Bible Society for Sociedades Bíblicas Unidas) and a modern Almeida (Sociedade Bíblica do Brasil); add them through `add_version.sh` once granted.
 - [ ] Live-check the chat in Spanish/Portuguese versions; recognize English book names in citations while reading another language.
 - [ ] Keep the selected verse across version switches; check onboarding and comparison on iPhone/iPad.
+- [ ] Later: Apple-Hosted Background Assets as the App Store host; catalog key rotation.
 
 ## 5. Release preparation
 

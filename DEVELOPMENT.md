@@ -123,6 +123,8 @@ cp Config/Local.xcconfig.example Config/Local.xcconfig
 
 Set your own `DEVELOPMENT_TEAM` and `BUNDLE_ID_PREFIX` there. `Config/Shared.xcconfig` includes it optionally. Do not commit the local file or copy its values into documentation.
 
+`BIBLE_CATALOG_PUBLIC_KEY` (and optionally `BIBLE_RELEASE_REPOSITORY`/`BIBLE_RELEASE_TAG`) also go there; see "Adding or updating a Bible version". The app reads them through `OpenBibleAI/Generated/BuildSettings.swift` (gitignored), which the app target's first build phase, *Generate build settings* (`Tools/generate_build_settings.sh`), rewrites from the build settings when they change (it records the xcconfig files in a dependency file so editing `Local.xcconfig` reruns it). Xcode lists the files to compile before that phase runs, so **on a fresh clone run `Tools/generate_build_settings.sh` once before the first build** (otherwise the first build fails with `cannot find 'BuildSettings'` and the next one succeeds). Scripts that build the app, such as `Tools/BibleImport/add_version.sh`, run it first.
+
 The macOS unit-test baseline used ad-hoc signing overrides, shown below. Those overrides are for local testing, not device distribution or release signing.
 
 ## Automated validation
@@ -265,14 +267,18 @@ Without `ENABLE_HARDENED_RUNTIME=NO` the Release test bundle fails to load (Team
 
 ## Bible versions and provenance
 
-No Bible ships inside the app. On first launch the user downloads a version (onboarding suggests one in their language); more can be added, switched, compared and deleted from the reader's version menu. Each version is a **package** published as the assets of one GitHub release of this repository (tag `bible-<id>-<n>`), pinned in [BibleCatalogEntry+Published.swift](OpenBibleAI/Features/BibleLibrary/BibleCatalogEntry+Published.swift) by size and SHA-256 and downloaded with `LocalModelStore` (verified, resumable, completion marker). New versions therefore ship with an app update.
+No Bible ships inside the app. On first launch the user downloads a version (onboarding suggests one in their language); more can be added, switched, compared and deleted from the reader's version menu. Each version is a **package** whose files are assets of the single GitHub release **`bibles`** of this repository, named `<id>-<n>-<file>` (`<id>-<n>` is the package revision, e.g. `kjv-1`). Files that shrink by ≥ 5% are published compressed as `<file>.zlib` (raw DEFLATE) and decompressed on install. `LocalModelStore` downloads them (resumable, completion marker), checking the SHA-256 of the archive and of the installed file.
+
+**Catalog.** The versions on offer are listed in `Tools/BibleImport/catalog.json` (`schema`, `sequence`, entries of version metadata plus pinned files). The app has it built in ([BibleCatalogEntry+Published.swift](OpenBibleAI/Features/BibleLibrary/BibleCatalogEntry+Published.swift), generated from it) and, when built with a catalog public key, also fetches the published `catalog.json` + `catalog.json.sig` from the `bibles` release at launch (`BibleLibraryModel.updateCatalog`). A remote catalog is accepted only if its **Ed25519 signature** verifies with `BIBLE_CATALOG_PUBLIC_KEY`, its schema is known, every entry downloads from this repository's `bibles` release, and its `sequence` is at least the built-in/last accepted one; it is cached and re-verified on launch, so offline launches keep it. New versions therefore appear **without an app update**. Each installed version is pinned to the entry it was installed from (`<Bibles>/<id>/entry.json`), so a later catalog never makes it disappear (an "update available" flow is a follow-up).
+
+**Never delete or replace a published `<id>-<n>-*` asset.** Every build pins asset names and hashes; a deleted or changed asset breaks installs from that build forever. Fixes ship as a new package revision (`<id>-<n+1>`). Only `catalog.json` and `catalog.json.sig` are replaced. Downloading Bible text and indexes is data, which App Store guideline 2.5.2 allows (it forbids downloading code).
 
 | Package file | Content |
 |---|---|
 | `version.json` | `id`, `name`, `abbreviation`, `language` (BCP-47), `copyright` |
 | `books.json` | `book_id`, `name` (in the version's language), `canonical_order` |
 | `verses.json` | `book_id`, `chapter`, `verse`, `text` |
-| `embeddings.bin` | `VerseVectorIndex` (256-dim) built from that `verses.json` |
+| `embeddings.bin` | `VerseVectorIndex` (256-dim, format 2: int8 values plus a scale per verse, ~8 MB) built from that `verses.json` |
 
 Book IDs follow the publisher's VPL export for every version (e.g. `JOH`, `SOL`), so a `BibleReference` names the same verse in each and comparison aligns by book, chapter and verse. Preserve verse text exactly, including supplied-word brackets and the source's capitalization; conversion is not an editorial rewrite.
 
@@ -280,32 +286,54 @@ Book IDs follow the publisher's VPL export for every version (e.g. `JOH`, `SOL`)
 
 | ID | Version | Language | Status |
 |---|---|---|---|
-| `kjv` | King James Version (eng-kjv2006) | en | Public domain (UK letters-patent qualification below). Package versioned in `Bibles/kjv/`; pinned as `bible-kjv-1`. |
-| `rv1909` | Reina-Valera 1909 ([eBible spaRV1909](https://ebible.org/find/details.php?id=spaRV1909)) | es | Public domain. Built from the ignored source; package versioned in `Bibles/rv1909/`; 31,084 verses (18 empty slots of eBible's KJV-numbered file skipped, listed by the converter). Pinned as `bible-rv1909-1`. |
+| `kjv` | King James Version (eng-kjv2006) | en | Public domain (UK letters-patent qualification below). Package versioned in `Bibles/kjv/` (test fixture). |
+| `rv1909` | Reina-Valera 1909 ([eBible spaRV1909](https://ebible.org/find/details.php?id=spaRV1909)) | es | Public domain. Package versioned in `Bibles/rv1909/` (test fixture); 31,084 verses (18 empty slots of eBible's KJV-numbered file skipped, listed by the converter). |
+| `bsb` `msb` | Berean Standard Bible (engbsb), Majority Standard Bible (engmsb) | en | Public domain. |
+| `web` `webbe` `webc` `webu` | World English Bible: US (engwebp), British (engwebpb), Classic (eng-web), Updated (engwebu) | en | Public domain. Classic and Updated: deuterocanon left out (`canon_only`). |
+| `wmb` `wmbbe` | World Messianic Bible: US (engwmb), British (engwmbb) | en | Public domain. |
+| `asv` `asvbt` `rv1895` | American Standard Version 1901 (eng-asv), ASV Byzantine Text (engasvbt), Revised Version 1895 (eng-rv) | en | Public domain. ASVBT and RV: deuterocanon/Apocrypha left out (`canon_only`). |
+| `ylt` `darby` `webster` `bbe` `gnv` | Young's Literal (engylt), Darby (engDBY), Webster 1833 (engwebster), Bible in Basic English (engBBE), Geneva 1599 (enggnv) | en | Public domain. |
+| `lsv` | Literal Standard Version (englsv) | en | CC BY-SA 4.0, © 2020 Covenant Press. |
+| `fbv` | Free Bible Version (engfbv) | en | CC BY-SA 4.0, © 2018 Dr. Jonathan Gallagher. |
+| `ulb` | Unlocked Literal Bible (engULB) | en | CC BY-SA 4.0, © 2017 Door43 World Missions Community. |
+| `t4t` | Translation for Translators (eng-t4t) | en | CC BY-SA 4.0, © 2008-2017 Ellis W. Deibler, Jr. Joins some verses (30,640). |
+| `ojb` | The Orthodox Jewish Bible (engojb) | en | CC BY 4.0, © Artists for Israel International. Hebrew versification (Psalm titles as verse 1, Joel 3, …), so Compare misaligns there. |
+| `bes` | La Biblia en Español Sencillo (spabes) | es | CC BY 4.0, © 2018, 2019 AudioBiblia.org / Irma Flores. |
+| `pdpt` | Palabra de Dios para ti (spapddpt) | es | CC BY 4.0, © 2020 Asociación Bíblica Latinoamericana. |
+| `vbl` | Versión Biblia Libre (spavbl) | es | CC BY-SA 4.0, © 2018-2020 Jonathan Gallagher y Shelly Barrios de Avila. |
+| `nbv` | Biblica® Open Nueva Biblia Viva (spaonbv) | es | CC BY-SA 4.0, © 2006, 2008 Biblica, Inc.; must be shared unchanged; "Biblica" is a trademark used with permission. A paraphrase that joins verses (29,102). |
+| `blivre` | Bíblia Livre (porbr2018), Almeida 1819 Textus Receptus updated | pt-BR | CC BY 4.0, © 2018 Diego Santos, Mario Sérgio e Marco Teles. Suggested first for Portuguese. |
+| `nbv-pt` | Biblica® Open Nova Bíblia Viva (poronbv) | pt-BR | CC BY-SA 4.0, © 2007, 2010 Biblica, Inc.; same Biblica terms as `nbv`. |
 | — | Almeida Revista e Corrigida 1911 | pt | Public domain edition, but no source of verified provenance found (2026-10-02): the known digital text comes from a withdrawn CrossWire module, redistributed by the Aionian Bible with edits. Not built. |
 | — | Reina-Valera 1960 | es | © Sociedades Bíblicas Unidas, administered by the American Bible Society (licensing@americanbible.org). Requires a license before it is built or published. |
 | — | Almeida (modern ARC/ACF) | pt | © SBB / SBTB. Requires a license. |
+| — | Drafts: Santa Biblia libre para el mundo (spablm), Santa Biblia libre Latinoamericano (spabll), Bíblia Portuguesa Mundial (porbrbsl) | es, pt | Public domain, but their publishers call them drafts under review. Not built. |
+| — | Douay-Rheims 1899, WEB Catholic | en | Public domain; need deuterocanon support (leaving those books out would misrepresent a Catholic Bible). Not built. |
+| — | NET, NASB, AMP, ERV, GOD'S WORD; LBLA, NBLH, Reina-Valera Gómez, Valera 1602 Purificada; ARA, NAA, NVI, NTLH | en, es, pt | Copyrighted without an open license. Wycliffe Modern Spelling is CC BY-NC-ND. Incomplete texts (NT or OT only: Open English Bible, Tyndale, EMTV, JPS 1917, Brenton, porblt, portft, …) are left out. |
 
-Only public-domain or licensed texts may be published. Keep licensed sources in the ignored `Tools/BibleImport/Source/` and never commit their generated JSON.
+Rights were checked on 2026-10-02 against eBible.org's [copyright list](https://ebible.org/Scriptures/copyright.php), each version's details page and the `*_about.htm` notice inside its archive (recorded as `license_checked` in the recipe). The `copyright` line in `version.json` carries the license, and onboarding and Manage Bibles show it. CC BY-SA packages are redistributed under the same license. Versification differences against the KJV are as published; mostly verses modern critical texts omit (Matthew 17:21, Acts 8:37, …; 16 in BSB/ASV/VBL), shown as "—" in Compare.
+
+Only public-domain, openly licensed (CC BY / CC BY-SA) or licensed texts may be published. Keep licensed sources in the ignored `Tools/BibleImport/Source/` and never commit their generated JSON.
 
 **KJV attribution and notice:** source ID **`eng-kjv2006`**, standardized 1769 text, protocanon only, courtesy of the CrossWire Bible Society and eBible.org ([details and terms](https://ebible.org/details.php?id=eng-kjv2006), [VPL archive](https://ebible.org/Scriptures/eng-kjv2006_vpl.zip)). The notice dated 2026-09-26 labels the work Public Domain while identifying special letters-patent restrictions on printing/importing printed copies in the United Kingdom; preserve that qualification and review territory/format requirements before release. The archive is Bible text only (no notes, headings or introductions); the app must not imply otherwise.
 
-### Building and publishing a package
+### Adding or updating a Bible version
 
-Recipes live in `Tools/BibleImport/versions/<id>.json` (metadata, source file under `Source/`, book-name table in `Tools/BibleImport/books/<lang>.json`, expected counts, `skip_empty_verses`).
+Packages are **not** stored in git (except the `kjv` and `rv1909` test fixtures): each is rebuilt from its recipe, built into the ignored `Bibles/<id>/`, and published as release assets. Recipes live in `Tools/BibleImport/versions/<id>.json`: version metadata (the `copyright` line names the license), `source`/`source_url`, `license_checked`, book-name table (`Tools/BibleImport/books/<lang>.json`), expected counts, `skip_empty_verses`, `canon_only` (leave out an edition's deuterocanon) and `package` (revision number, default 1).
 
-```bash
-# 1. Download and unzip the source into Tools/BibleImport/Source/ (ignored), e.g.
-mkdir -p Tools/BibleImport/Source/spaRV1909 && cd Tools/BibleImport/Source/spaRV1909 \
-  && curl -fLO https://eBible.org/Scriptures/spaRV1909_vpl.zip && unzip spaRV1909_vpl.zip && cd -
-# 2. Convert (validates format, duplicates and counts; reports versification gaps vs the KJV)
-python3 Tools/BibleImport/convert_vpl.py Tools/BibleImport/versions/rv1909.json Bibles --compare Bibles/kjv/verses.json
-# 3. Build and export its embedding index (see "Bible chat"), copy it to Bibles/<id>/embeddings.bin
-# 4. Print the catalog entry and the release command
-python3 Tools/BibleImport/make_release.py Bibles/rv1909
-```
+1. **License.** Public domain, CC BY 4.0, CC BY-SA 4.0, or written permission; a complete 66-book text (or one whose extra books `canon_only` removes). Check the publisher's terms and the archive's `*_about.htm`; record the date in `license_checked`.
+2. **Recipe.** Add `versions/<id>.json` (set `expected_verses` from the converter's count and explain any gap against the KJV).
+3. **Build:** `Tools/BibleImport/add_version.sh <id>` downloads the source, converts it (validation plus versification report), embeds every verse (~6 min on Apple silicon), exports the int8 index to `Bibles/<id>/embeddings.bin` and checks the runtime embedder reproduces it (worst cosine ≥ 0.99).
+4. **Review** the report: counts, versification gaps, copyright line, sizes.
+5. **Stage and pin:** `python3 Tools/BibleImport/make_release.py <id>` adds the entry to `catalog.json` (`sequence + 1`), regenerates the Swift catalog, stages the assets in `Tools/BibleImport/Release/` and prints the `gh release upload bibles …` command. It refuses to re-pin a published revision with different bytes (bump `package`).
+6. **Upload** the assets with the printed command, then **commit and push** the recipe, `catalog.json` and the Swift catalog.
+7. **Approve** the *Publish catalog* workflow run (`.github/workflows/publish-catalog.yml`, environment `release`): it checks every pinned asset is published with its size and hash and the sequence is newer, signs `catalog.json` with the `CATALOG_SIGNING_KEY` secret and uploads `catalog.json` + `.sig` to the release. Existing installs see the new version on next launch.
 
-Paste the printed entry into `BibleCatalogEntry+Published.swift`; publishing (`gh release create …`) is a manual step for Miguel. For the KJV, `convert_vpl.py` reproduces `Bibles/kjv/books.json` and `verses.json` byte for byte, and `PublishedBibleCatalogTests` checks the pinned entry against `Bibles/kjv`. Every published package is versioned under `Bibles/<id>/` (public-domain texts only; licensed texts must not be committed).
+To fix a published text, bump `package` in the recipe and repeat; the old assets stay for builds that pin them. Privately licensed texts follow the same flow, but their sources stay in the ignored `Source/`.
+
+**Signing key.** Ed25519, created once with `Tools/BibleImport/catalog_key.sh generate`: the private key goes to the login Keychain ("OpenBibleAI catalog signing"), and the printed public key (hex) goes in `BIBLE_CATALOG_PUBLIC_KEY` in `Config/Local.xcconfig` (compiled into the app by the *Generate build settings* phase, `Tools/generate_build_settings.sh`, as the gitignored `OpenBibleAI/Generated/BuildSettings.swift`; builds without it use only the built-in catalog). Store the private key as the GitHub secret with `catalog_key.sh export-private | gh secret set CATALOG_SIGNING_KEY --env release` and keep a backup in a password manager; it must never be committed or put in an xcconfig (those values are compiled into the app). If it is lost, remote catalogs stop until an app update ships a new public key; if it leaks, a forged catalog can still only point at this repository's `bibles` release. Without the workflow: `catalog_key.sh verify-assets` then `sign`, and upload with `--clobber`.
+
+`PublishedBibleCatalogTests` checks the built-in catalog equals `catalog.json` and every entry against its package when present locally; `TEST_RUNNER_OPENBIBLE_VERIFY_RELEASES=1` downloads every pinned asset and checks it after publishing. For the KJV, `convert_vpl.py` reproduces `Bibles/kjv/books.json` and `verses.json` byte for byte. To convert older Float16 indexes, `TEST_RUNNER_OPENBIBLE_REQUANTIZE_INDEX=1` re-encodes every `Bibles/*/embeddings.bin` as int8 (into the test host's container) and checks search agreement.
 
 ### Recorded SHA-256 values
 

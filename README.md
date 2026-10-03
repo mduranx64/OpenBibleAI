@@ -13,7 +13,7 @@ The current verified development experience is **macOS with Xcode 27 and Swift 6
 
 ## Building and testing
 
-Open `OpenBibleAI.xcworkspace` in Xcode to work with the app and its three local packages. Use the `OpenBibleAI` scheme to run on My Mac and `AllUnitTests` for the unit-test plan. Opening `OpenBibleAI.xcodeproj` directly is also supported.
+After cloning, run `Tools/generate_build_settings.sh` once: it writes the gitignored `OpenBibleAI/Generated/BuildSettings.swift` from `Config/*.xcconfig` (the app's *Generate build settings* phase keeps it current, but Xcode decides what to compile before that phase first runs). Then open `OpenBibleAI.xcworkspace` in Xcode to work with the app and its three local packages. Use the `OpenBibleAI` scheme to run on My Mac and `AllUnitTests` for the unit-test plan. Opening `OpenBibleAI.xcodeproj` directly is also supported.
 
 Installed Bibles can always be read offline. AI study runs entirely on the device: it uses Apple Intelligence where available (iOS/macOS/visionOS 26+, Apple Intelligence on); otherwise the app offers to download a small Qwen3 model (≈1 GB, or ≈350 MB on 4 GB iPhones) that runs with MLX on Apple silicon. Intel Macs and devices with too little memory read without AI. See the development guide for the service address and separate live-validation steps.
 
@@ -39,4 +39,4 @@ Edit `Config/Local.xcconfig` and set `DEVELOPMENT_TEAM` to your 10-character App
 
 ## Bible data
 
-`Bibles/kjv/` holds the KJV package (66 books and 31,102 verses from eBible.org's `eng-kjv2006` export, plus its embedding index); every version is published as a GitHub release and pinned in the app by SHA-256. Attribution, rights notices, licensing status of other versions, source URLs and hashes are in [the development guide](DEVELOPMENT.md). Import tools are development-only; downloaded source archives are ignored.
+Bible versions are downloaded on demand from this repository's `bibles` GitHub release: 22 English versions (KJV, BSB, WEB, ASV, YLT, …), 5 Spanish (Reina-Valera 1909, Español Sencillo, …) and 2 Portuguese (Bíblia Livre, Nova Bíblia Viva), each with its embedding index. They are public domain or CC BY / CC BY-SA 4.0, and each one's copyright line is shown in the app. A signed catalog lets new versions appear without an app update. Only the `kjv` and `rv1909` packages are versioned (`Bibles/`, as test fixtures); the others are rebuilt from recipes with `Tools/BibleImport/` (see "Adding or updating a Bible version" in [the development guide](DEVELOPMENT.md), which also has the attribution and licensing details). Import tools are development-only; downloaded source archives are ignored.
