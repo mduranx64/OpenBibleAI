@@ -23,6 +23,9 @@ struct BibleCompareView: View {
     let selectVerse: (BibleReference) -> Void
 
     @State private var visibleVerse: Int?
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
 
     private static let numberWidth: CGFloat = 32
     private static let minimumColumnWidth: CGFloat = 220
@@ -38,6 +41,29 @@ struct BibleCompareView: View {
     private var columns: [String] { model.columnIDs(excluding: primary.id) }
 
     var body: some View {
+        layout
+            .task(id: LoadKey(bookID: bookID, chapter: chapter, primaryVersionID: primary.id, columns: columns, verseCount: verses.count)) {
+                await model.load(bookID: bookID, chapter: chapter, primary: verses, primaryVersionID: primary.id)
+                scrollToSelection()
+            }
+            .onChange(of: selectionRevision) { _, _ in scrollToSelection() }
+            .accessibilityIdentifier("compareView")
+    }
+
+    @ViewBuilder
+    private var layout: some View {
+        #if os(iOS)
+        if horizontalSizeClass == .compact {
+            stacked
+        } else {
+            columnsLayout
+        }
+        #else
+        columnsLayout
+        #endif
+    }
+
+    private var columnsLayout: some View {
         GeometryReader { geometry in
             let count = CGFloat(columns.count + 1)
             let available = geometry.size.width - Self.numberWidth - 48
@@ -70,12 +96,80 @@ struct BibleCompareView: View {
             }
             .scrollPosition(id: $visibleVerse, anchor: .center)
         }
-        .task(id: LoadKey(bookID: bookID, chapter: chapter, primaryVersionID: primary.id, columns: columns, verseCount: verses.count)) {
-            await model.load(bookID: bookID, chapter: chapter, primary: verses, primaryVersionID: primary.id)
-            scrollToSelection()
+    }
+
+    /// Narrow screens (iPhone): each verse lists the versions one under the
+    /// other instead of side-by-side columns that would need sideways
+    /// scrolling. Versions are added and removed from the Compare menu.
+    private var stacked: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.title.bold())
+                    .padding(.bottom, 4)
+                    .accessibilityIdentifier("chapterTitle")
+
+                ForEach(model.rows) { row in
+                    stackedRow(row)
+                        .id(row.verse)
+                }
+
+                if case let .failed(message) = model.state {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+            .scrollTargetLayout()
+            .padding()
         }
-        .onChange(of: selectionRevision) { _, _ in scrollToSelection() }
-        .accessibilityIdentifier("compareView")
+        .scrollPosition(id: $visibleVerse, anchor: .center)
+    }
+
+    private func abbreviation(at index: Int) -> String {
+        guard index > 0 else { return primary.abbreviation }
+        // Rows can lag a column change until the next load.
+        guard columns.indices.contains(index - 1) else { return "" }
+        let id = columns[index - 1]
+        return library.entry(id)?.version.abbreviation ?? id
+    }
+
+    private func stackedRow(_ row: BibleCompareModel.Row) -> some View {
+        let reference = try? BibleReference(bookID: bookID, chapter: chapter, verse: row.verse)
+        let isSelected = reference != nil && reference == selectedReference
+        return Button {
+            if let reference, row.texts.first ?? nil != nil { selectVerse(reference) }
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("\(row.verse)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 20, alignment: .trailing)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(Array(row.texts.enumerated()), id: \.offset) { index, text in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(abbreviation(at: index))
+                                .font(.caption2.bold())
+                                .foregroundStyle(index == 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                            Text(text ?? "—")
+                                .foregroundStyle(text == nil ? .secondary : .primary)
+                                .multilineTextAlignment(.leading)
+                                .accessibilityIdentifier("compareCell-\(index)-\(row.verse)")
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(10)
+            .background(
+                isSelected ? Color.accentColor.opacity(0.12) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("compareRow-\(row.verse)")
     }
 
     private func scrollToSelection() {

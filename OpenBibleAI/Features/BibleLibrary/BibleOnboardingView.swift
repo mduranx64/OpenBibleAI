@@ -13,49 +13,91 @@ struct BibleOnboardingView: View {
     let continueReading: () -> Void
 
     var body: some View {
+        #if os(iOS)
+        // The heading scrolls with the list and Start Reading stays at the
+        // bottom, so the versions keep room on short (landscape) screens.
+        BibleVersionList(library: library, suggested: library.suggestedVersionID()) {
+            heading
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+        }
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity)
+        .background(Color(uiColor: .systemGroupedBackground))
+        .safeAreaInset(edge: .bottom) {
+            startButton
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(.bar)
+        }
+        .task { await library.refresh() }
+        #else
         VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                Image(systemName: "book.closed")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.tint)
-                Text("Choose a Bible")
-                    .font(.largeTitle.bold())
-                Text("Download a version to start reading. You can add more versions later from the version menu.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(32)
+            heading
+                .padding(32)
 
             BibleVersionList(library: library, suggested: library.suggestedVersionID())
                 .frame(maxWidth: 560)
 
-            Button {
-                continueReading()
-            } label: {
-                Text("Start Reading")
-                    .frame(minWidth: 200)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(library.installedIDs.isEmpty)
-            .accessibilityIdentifier("onboardingContinueButton")
-            .padding(24)
+            startButton
+                .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { await library.refresh() }
+        #endif
+    }
+
+    private var heading: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 44))
+                .foregroundStyle(.tint)
+            Text("Choose a Bible")
+                .font(.largeTitle.bold())
+            Text("Download a version to start reading. You can add more versions later from the version menu.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var startButton: some View {
+        Button {
+            continueReading()
+        } label: {
+            Text("Start Reading")
+                .frame(minWidth: 200)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(library.installedIDs.isEmpty)
+        .accessibilityIdentifier("onboardingContinueButton")
+    }
+}
+
+extension BibleVersionList where Header == EmptyView {
+    init(library: BibleLibraryModel, suggested: String? = nil, allowsDelete: Bool = false) {
+        self.init(library: library, suggested: suggested, allowsDelete: allowsDelete) { EmptyView() }
     }
 }
 
 /// The catalog grouped by language, each version with its size, notice, and
 /// download / progress / installed state. Shared by onboarding and Settings.
-struct BibleVersionList: View {
+struct BibleVersionList<Header: View>: View {
     let library: BibleLibraryModel
     var suggested: String? = nil
     /// Settings shows Delete for installed versions; onboarding doesn't.
     var allowsDelete = false
+    /// Scrolls with the list, above the versions (onboarding on iOS).
+    @ViewBuilder var header: () -> Header
 
     var body: some View {
         List {
+            if Header.self != EmptyView.self {
+                Section {
+                    header()
+                        .listRowBackground(Color.clear)
+                }
+            }
             ForEach(languageGroups, id: \.language) { group in
                 Section(group.title) {
                     ForEach(group.entries) { entry in
@@ -107,6 +149,10 @@ private struct BibleVersionRow: View {
 
     private var isInstalled: Bool { library.installedIDs.contains(entry.id) }
 
+    private var canDelete: Bool {
+        allowsDelete && isInstalled && entry.id != library.activeVersionID && library.installedIDs.count > 1
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
@@ -145,6 +191,23 @@ private struct BibleVersionRow: View {
         .padding(.vertical, 4)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("bibleVersion-\(entry.id)")
+        #if os(iOS)
+        // On iOS, Delete is a swipe (or long-press) action, leaving room for
+        // the name and notice on narrow screens. Swiping and tapping Delete
+        // is the confirmation, as in Mail or Files (a dialog from a swiped
+        // row doesn't present); the version can be downloaded again.
+        .swipeActions(edge: .trailing) {
+            if canDelete {
+                deleteButton
+                    .tint(.red)
+            }
+        }
+        .contextMenu {
+            if canDelete {
+                deleteButton
+            }
+        }
+        #endif
         .confirmationDialog("Delete \(entry.version.name)?", isPresented: $isConfirmingDelete) {
             Button("Delete \(entry.version.name)", role: .destructive) {
                 Task { _ = await library.delete(entry.id) }
@@ -153,6 +216,24 @@ private struct BibleVersionRow: View {
         } message: {
             Text("You can download it again later.")
         }
+    }
+
+    private var deleteButton: some View {
+        Button {
+            Task { _ = await library.delete(entry.id) }
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+        .accessibilityIdentifier("deleteBible-\(entry.id)")
+    }
+
+    /// Delete beside the state (Mac); on iOS it is a swipe action.
+    private var showsDeleteButton: Bool {
+        #if os(iOS)
+        false
+        #else
+        canDelete
+        #endif
     }
 
     @ViewBuilder
@@ -178,13 +259,13 @@ private struct BibleVersionRow: View {
                 HStack {
                     Button("Update") { library.update(entry.id) }
                         .accessibilityIdentifier("updateBible-\(entry.id)")
-                    if allowsDelete, entry.id != library.activeVersionID, library.installedIDs.count > 1 {
+                    if showsDeleteButton {
                         Button("Delete", role: .destructive) { isConfirmingDelete = true }
                             .accessibilityIdentifier("deleteBible-\(entry.id)")
                     }
                 }
             } else if isInstalled {
-                if allowsDelete, entry.id != library.activeVersionID, library.installedIDs.count > 1 {
+                if showsDeleteButton {
                     Button("Delete", role: .destructive) { isConfirmingDelete = true }
                         .accessibilityIdentifier("deleteBible-\(entry.id)")
                 } else {
