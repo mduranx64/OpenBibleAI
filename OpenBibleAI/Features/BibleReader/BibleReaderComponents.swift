@@ -15,6 +15,12 @@ extension BibleCatalogModel {
         return books.first(where: { $0.bookID == bookID })?.name
     }
 
+    /// Loaded books whose name begins with the typed reference ("jo" → John).
+    func bookSuggestions(for input: String) -> [BibleBook] {
+        guard case let .loaded(books) = state else { return [] }
+        return BibleBookSuggestions.matching(input, in: books)
+    }
+
     /// e.g. "John 3:16".
     func referenceLabel(for reference: BibleReference) -> String {
         let name = bookName(for: reference.bookID) ?? reference.bookID
@@ -393,5 +399,47 @@ struct TextSearchResultRows: View {
             return String(localized: "Showing first \(result.verses.count) of \(result.totalCount) verses")
         }
         return String(localized: "\(result.totalCount) verses")
+    }
+}
+
+extension View {
+    /// On macOS, offers `books` in the reference field's completion popup;
+    /// choosing one fills "John " for the chapter and verse. Needs macOS 15;
+    /// earlier systems, and iOS (see `BookSuggestionButtons`), keep a plain field.
+    @ViewBuilder
+    func bookSuggestions(_ books: [BibleBook]) -> some View {
+        #if os(macOS)
+        if #available(macOS 15, *) {
+            textInputSuggestions(books) { book in
+                Text(book.name)
+                    .textInputCompletion(book.name + " ")
+            }
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
+    }
+}
+
+/// iPad's reference field has no completion popup: matching books appear as
+/// a row of buttons below it, and choosing one fills "John ".
+struct BookSuggestionButtons: View {
+    let books: [BibleBook]
+    let choose: (BibleBook) -> Void
+
+    var body: some View {
+        if !books.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    ForEach(books) { book in
+                        Button(book.name) { choose(book) }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("bookSuggestion-\(book.bookID)")
+                    }
+                }
+            }
+        }
     }
 }

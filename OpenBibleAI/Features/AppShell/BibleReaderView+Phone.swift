@@ -155,6 +155,13 @@ struct PhoneSearchView: View {
             placement: .navigationBarDrawer(displayMode: .always),
             prompt: Text("John 3:16 or words")
         )
+        .searchSuggestions {
+            ForEach(catalogModel.bookSuggestions(for: query)) { book in
+                Text(book.name)
+                    .searchCompletion(book.name + " ")
+                    .accessibilityIdentifier("bookSuggestion-\(book.bookID)")
+            }
+        }
         .onSubmit(of: .search, submit)
         .onChange(of: query) { _, _ in
             navigation.cancelSearch()

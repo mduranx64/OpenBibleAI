@@ -52,5 +52,28 @@ final class PadNavigationUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["AI Settings"].waitForExistence(timeout: 10))
         screenshot("Pad AI Settings", app)
     }
+
+    func testBookSuggestionCompletesTheReference() throws {
+        guard UIDevice.current.userInterfaceIdiom == .pad else {
+            throw XCTSkip("The split layout is checked on iPad.")
+        }
+        let app = XCUIApplication()
+        app.launchForUITest(arguments: ["-bible.readingPosition", ""])
+
+        let field = app.textFields["referenceSearchField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 15))
+        field.tap()
+        field.typeText("1 Jo")
+        let suggestion = app.buttons["bookSuggestion-1JO"]
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["bookSuggestion-JOH"].exists, "1 Jo matches only 1 John")
+        screenshot("Pad book suggestions", app)
+        suggestion.tap()
+
+        XCTAssertEqual(field.value as? String, "1 John ")
+        XCTAssertFalse(suggestion.exists, "A complete name suggests nothing")
+        field.typeText("2:1\n")
+        XCTAssertTrue(app.buttons["verse-1JO-2-1"].waitForExistence(timeout: 15))
+    }
 }
 #endif

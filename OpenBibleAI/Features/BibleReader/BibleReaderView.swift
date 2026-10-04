@@ -42,6 +42,7 @@ struct BibleReaderView: View {
     @State var searchText = ""
     @State var textQuery = ""
     @State var searchMode = SearchMode.reference
+    @FocusState private var isReferenceFieldFocused: Bool
     /// Drill-down: the book list, or the chapter grid of the selected book.
     @State private var showsBookList = true
     @State private var bookFilter = ""
@@ -326,12 +327,20 @@ struct BibleReaderView: View {
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Bible reference")
                 .accessibilityIdentifier("referenceSearchField")
+                .focused($isReferenceFieldFocused)
+                .bookSuggestions(catalogModel.bookSuggestions(for: searchText))
                 .onSubmit { submitSearch() }
                 .onChange(of: searchText) { _, _ in navigation.cancelSearch() }
             Button("Go", action: submitSearch)
                 .accessibilityIdentifier("referenceSearchButton")
                 .disabled(searchText.allSatisfy(\.isWhitespace))
         }
+        #if os(iOS)
+        BookSuggestionButtons(books: catalogModel.bookSuggestions(for: searchText)) { book in
+            searchText = book.name + " "
+            isReferenceFieldFocused = true
+        }
+        #endif
         switch navigation.searchModel.state {
         case .loading:
             HStack {

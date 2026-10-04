@@ -1,6 +1,6 @@
 # OpenBibleAI Roadmap
 
-Status date: **2026-10-03**. Milestones 1–4b are committed (latest: iPhone and iPad layouts, `4ef1675`…`fcb8fad`); 31 Bible versions are published in signed catalog sequence 3. Detailed evidence is in [MEMORY.md](MEMORY.md). Unchecked items below are planned capabilities.
+Status date: **2026-10-04**. Milestones 1–4b are committed (latest: iPhone and iPad layouts, `4ef1675`…`fcb8fad`); 31 Bible versions are published in signed catalog sequence 3. Detailed evidence is in [MEMORY.md](MEMORY.md). Unchecked items below are planned capabilities.
 
 ## Completed
 
@@ -31,6 +31,7 @@ Slices:
 - [x] Define and test the reference parser/resolver against a supplied catalog and existing `BibleReference` validation. `BibleReferenceParser.parse(_:books:)` returns a reference; it does not verify stored verse availability.
 - [x] Add observable lookup state and resolve an actual stored verse, with cancellation/latest-request behavior appropriate to the interaction. `BibleReferenceSearchModel` uses separate catalog/verse repositories and publishes only matching stored verses.
 - [x] Add the search entry and connect successful lookup to existing book/chapter/verse selection and reading-position persistence. Wired in `1f60e8f` via `BibleReaderNavigationModel` and the search UI, with `BibleReaderNavigationModelTests` and `ReferenceSearchUITests` covering it.
+- [x] Book-name suggestions while typing (2026-10-04, committed on branch `feature/book-name-suggestions`): `BibleBookSuggestions` matches the start of a catalog name or of a numbered book's name after its number ("jo" → Joshua … John, 1–3 John; "1 jo" → 1 John), in canonical order; choosing one fills "John ". macOS 15+ completion popup, iPad button row, iPhone search suggestions.
 
 Acceptance criteria:
 
