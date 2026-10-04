@@ -106,6 +106,26 @@ final class PhoneNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["verse-GEN-1-2"].waitForExistence(timeout: 10))
     }
 
+    func testBookSuggestionCompletesTheReference() throws {
+        let app = try launch()
+        tab("Search", app).tap()
+
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.tap()
+        field.typeText("1 Jo")
+        let suggestion = app.descendants(matching: .any)["bookSuggestion-1JO"]
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["bookSuggestion-JOH"].exists, "1 Jo matches only 1 John")
+        screenshot("7 Book suggestions", app)
+        suggestion.tap()
+
+        XCTAssertEqual(field.value as? String, "1 John ")
+        field.typeText("2:1\n")
+        XCTAssertTrue(app.buttons["verse-1JO-2-1"].waitForExistence(timeout: 15))
+        XCTAssertTrue(tab("Read", app).isSelected)
+    }
+
     func testLibrarySwitchesComparesAndManages() throws {
         let app = try launch(bibles: .installed(["kjv", "test-es"]))
         tab("Library", app).tap()
