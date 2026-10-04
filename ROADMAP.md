@@ -1,22 +1,23 @@
 # OpenBibleAI Roadmap
 
-Status date: **2026-09-30**, committed implementation baseline `2623655`. Exact-reference search (parser/resolver, lookup-state, and UI/navigation wiring) is fully committed as of `1f60e8f`. Detailed evidence is in [MEMORY.md](MEMORY.md). Unchecked items below are planned capabilities.
+Status date: **2026-10-03**. Milestones 1–4b are committed (latest: iPhone and iPad layouts, `4ef1675`…`fcb8fad`); 31 Bible versions are published in signed catalog sequence 3. Detailed evidence is in [MEMORY.md](MEMORY.md). Unchecked items below are planned capabilities.
 
 ## Completed
 
 - [x] Validated book, reference, and verse values; repository contracts and test fixtures.
 - [x] In-memory verse lookup, passage loading, caching, and JSON repositories.
 - [x] Streamed study responses, cancellation and error handling (originally via local Ollama).
-- [x] Installable Bible versions (2026-10-02, uncommitted): no bundled Bible; onboarding downloads pinned version packages (text + embedding index) from GitHub releases; switch versions, compare 2–4 in aligned columns, manage/delete; the chat answers from the reading version. UI localized in Spanish and Brazilian Portuguese (String Catalog). Public-domain KJV and RV1909 built and pinned, ready to publish; RVR1960 and modern Almeida await licenses; Almeida 1911 awaits a verified source.
-- [x] Bible chat (2026-10-02, uncommitted): one ChatGPT-like panel replaces "Ask the Bible" and "This Verse": follow-ups use recent turns and the verses the previous answer cited, a selected verse attaches as a removable chip, chats are saved on device with a list (open/delete) and New Chat. AI Settings lists every downloaded model (Qwen3 1.7B/0.6B, search model) with Delete, whichever engine is active.
-- [x] Ask the Bible (2026-10-01, uncommitted): free questions in any language answered from retrieved KJV passages (keywords + optional semantic search, bundled verse vectors), citations checked and linked to the reader.
-- [x] On-device AI without external servers (2026-10-01, uncommitted): Apple's FoundationModels first, else a downloaded MLX Qwen3 model (1.7B; 0.6B on 4 GB devices), pinned revisions with SHA-256 verification; Ollama removed.
+- [x] iPhone and iPad layouts (2026-10-03): iPhone tabs (Read, Chat, Search, Library), iPad sidebar + reader + chat inspector (tabs in narrow Split View), stacked Compare and swipe-to-delete on small screens; simulator UI tests for both.
+- [x] Installable Bible versions (2026-10-02): no bundled Bible; onboarding downloads pinned version packages (text + embedding index) from GitHub releases; switch versions, compare 2–4 in aligned columns, manage/delete; the chat answers from the reading version. UI localized in Spanish and Brazilian Portuguese (String Catalog). Public-domain KJV and RV1909 built and pinned, ready to publish; RVR1960 and modern Almeida await licenses; Almeida 1911 awaits a verified source.
+- [x] Bible chat (2026-10-02): one ChatGPT-like panel replaces "Ask the Bible" and "This Verse": follow-ups use recent turns and the verses the previous answer cited, a selected verse attaches as a removable chip, chats are saved on device with a list (open/delete) and New Chat. AI Settings lists every downloaded model (Qwen3 1.7B/0.6B, search model) with Delete, whichever engine is active.
+- [x] Ask the Bible (2026-10-01): free questions in any language answered from retrieved KJV passages (keywords + optional semantic search, bundled verse vectors), citations checked and linked to the reader.
+- [x] On-device AI without external servers (2026-10-01): Apple's FoundationModels first, else a downloaded MLX Qwen3 model (1.7B; 0.6B on 4 GB devices), pinned revisions with SHA-256 verification; Ollama removed.
 - [x] Canonically ordered books, chapter discovery, and ordered chapter verses.
 - [x] Complete bundled KJV: 66 books, 31,102 verses, with separate book metadata.
 - [x] Book → chapter → verse navigation with loading, empty, failure, and retry UI.
 - [x] Full-chapter reading, selectable verses, and scrolling to sidebar selection.
 - [x] Previous/Next within the selected book, including incomplete-dataset boundaries.
-- [x] Navigation refresh (2026-10-01, uncommitted): drill-down sidebar (testament-grouped, filterable books → chapter grid), verse list removed from the sidebar, cross-book Previous/Next, ⌘[ / ⌘] and ⌥↑ / ⌥↓ shortcuts, "Book Chapter" breadcrumb.
+- [x] Navigation refresh (2026-10-01): drill-down sidebar (testament-grouped, filterable books → chapter grid), verse list removed from the sidebar, cross-book Previous/Next, ⌘[ / ⌘] and ⌥↑ / ⌥↓ shortcuts, "Book Chapter" breadcrumb.
 - [x] Persist and restore book/chapter without overriding newer user navigation.
 
 Completed means implemented with the dated test/manual evidence recorded in MEMORY; it does not mean release-certified on every declared platform.
@@ -41,7 +42,7 @@ Acceptance criteria:
 
 Initial supported syntax is a full catalog book name followed by `chapter:verse`, including `1 John 2:1` and `Song of Solomon 1:2`. Name matching ignores case and collapses whitespace, including tabs/newlines. Whitespace around the colon and leading zeros are accepted. Chapter/verse tokens use ASCII digits, must fit `Int`, and must be positive. Abbreviations (including publisher IDs), ranges, chapter-only queries, fuzzy matching, and multiple references are unsupported. Names must match uniquely; the parser reports unknown/ambiguous names separately from invalid syntax and domain position errors. Avoid building a full-text index for exact lookup.
 
-## 2. Text search — implemented, uncommitted (2026-09-30)
+## 2. Text search — complete (2026-09-30)
 
 Goal: find words or phrases in bundled KJV verses and open a result in the reader.
 
@@ -55,7 +56,7 @@ Acceptance criteria:
 - Rapid query changes cannot display results for an older query; background work supports cancellation where applicable.
 - Tests cover real query/result behavior without a live model dependency.
 
-## 3. Measured search performance — implemented, uncommitted (2026-10-01)
+## 3. Measured search performance — complete (2026-10-01)
 
 Result: baseline recorded; targets (p95 ≤ 100 ms, no main-actor stall > 16 ms) were missed (≈ 278 ms, ≈ 283 ms stall) and now pass (≈ 87 ms, ≈ 2 ms) with `@concurrent` and an ASCII tokenizer fast path. No index was needed. Details and commands: [DEVELOPMENT.md](DEVELOPMENT.md#search-performance-text-search).
 
@@ -68,7 +69,7 @@ Acceptance criteria:
 - If an index is added, define rebuilding/versioning and demonstrate result equivalence to the source dataset.
 - Cancellation and interaction remain responsive; record measured before/after results rather than inferred improvements.
 
-## 4. AI study improvements — implemented, uncommitted (2026-10-01)
+## 4. AI study improvements — complete (2026-10-01)
 
 As built: the selected verse's whole chapter, bounded to 6,000 characters of verse text (trimmed to a contiguous window around the selected verse when longer; the selected verse is always included), is sent as background context. Prompts use the full book name. The panel shows a verse card (full-name reference + text) and labels the response "Generated explanation — not Scripture". Answers are tied to the verse they were generated for and cleared on selection change. Mocked failure/timeout behavior is unchanged; a separate gated live smoke test exercises a real installed model. Not done: no automated check that generated claims or citations are accurate.
 
@@ -86,7 +87,7 @@ Acceptance criteria:
 
 Three 1024 px visual concepts, their hand-held variants, three Bible + AI treatments of the hand-held First Light concept, and twelve holographic Sculpted Book treatments are in `Design/AppIconConcepts/`, with small-size/mask comparison pages. Miguel selected `03-sculpted-book-original-pose-elegant-style.png`, which applies the elegant held-icon style to the original sculpted Bible and cupped-hand composition. That image now fills the iOS/iPadOS and macOS `AppIcon` slots. A matching two-layer `AppIconVision` image stack is selected for visionOS. The macOS app build and direct iOS/visionOS asset compilation passed; full iOS and visionOS app builds remain blocked by existing platform source errors documented in `MEMORY.md`. Editable vector artwork, appearance variants, and live platform review remain future polish.
 
-## 4b. Bible versions — 29 versions, one release, signed catalog (2026-10-03, published)
+## 4b. Bible versions — 31 versions, one release, signed catalog (2026-10-03, published)
 
 Every openly licensed complete Bible on eBible.org in English (22, with the KJV), Spanish (5, with the RV1909) and Portuguese (2) is converted and indexed; drafts, Catholic-canon, incomplete and copyrighted texts are listed with reasons in DEVELOPMENT. Packages are published as assets of one `bibles` release (`<id>-<n>-<file>`, compressed where it helps; int8 verse index), about 8.8 MB per version instead of 22.5 MB. A signed remote catalog (Ed25519, key in the Keychain and the `release` GitHub environment, public key from `Local.xcconfig` through generated `BuildSettings`) lets new versions appear without an app update. Packages are no longer committed except the `kjv`/`rv1909` fixtures.
 
@@ -113,7 +114,7 @@ Acceptance criteria:
 - Restore a tracked, tested book-catalog generation path and preserve source/provenance documentation alongside reproducible resource checks.
 - Expand CI to the appropriate package and app tests; verify the actual runner configuration.
 - Validate keyboard navigation, VoiceOver, text readability, window sizes, and loading/error states.
-- Select and test the intended release platforms; macOS results do not substitute for iOS/visionOS runs.
+- Select and test the intended release platforms; macOS results do not substitute for iOS/visionOS runs. iPhone/iPad layouts are simulator-tested (2026-10-03); real devices, VoiceOver and visionOS runs remain.
 - Review translation distribution requirements (each Bible version's license and the KJV's UK letters-patent qualification) for release territories, signing, packaging, and installation behavior.
 - Document remaining limitations and release/manual test evidence.
 - Fix the flaky `BibleCompareModelTests.aNewerLoadWinsOverAnOlderOne` (its two `async let` loads can start in either order).

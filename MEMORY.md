@@ -1,6 +1,6 @@
 # OpenBibleAI — Project Checkpoint
 
-Last verified: **2026-09-30**. This document preserves project context for new chats; verify the current checkout before relying on its Git or test snapshot.
+Last verified: **2026-10-03**. This document preserves project context for new chats; verify the current checkout before relying on its Git or test snapshot.
 
 ## Working agreement
 
@@ -8,7 +8,13 @@ Miguel selected **implement and explain**: Codex edits and tests small feature s
 
 The handoff belongs inside this repository and should be versionable. No new chat, commit, push, history rewrite, or feature implementation was requested as part of preparing it.
 
-## Verified source baseline
+## Current state and next task (2026-10-03)
+
+- `main` at `a59e549` plus this docs update, ahead of `origin/main` until pushed. Latest features: iPhone/iPad layouts (`4ef1675`, `33948a4`, `fcb8fad`), citations in any language, version updates, deuterocanon (Douay-Rheims, WEB with Deuterocanon). 31 versions published in signed catalog sequence 3.
+- The dated milestone sections below are the evidence log, oldest first; earlier "NOT committed" labels describe the state on those dates (all of that work is committed now).
+- Next, per the roadmap: **5. Release preparation** (macOS UI suite rerun, real iPhone/iPad devices and VoiceOver, CI expansion, distribution review), the open 4b items (live update check against a test release, Spanish/Portuguese Catholic canon, licenses) and chat quality. Confirm scope with Miguel before starting.
+
+## Verified source baseline (2026-09-30, historical)
 
 - Latest implementation commit: `2623655` — `Decouple ReadingPositionStore from UserDefaults`.
 - On 2026-09-30 (checkpoint refresh), `main` was one commit ahead of its local `origin/main` reference (`1f60e8f`). The only working-tree changes were documentation: modified README and untracked AGENTS.md, MEMORY.md, ROADMAP.md, and docs/. No fetch was used to establish remote-server state.
@@ -70,9 +76,9 @@ Miguel separately reported passing manual checks for full KJV browsing, verse se
 - At the implementation baseline, the publisher notice existed only in ignored downloaded files. This handoff now records attribution, publisher notice information, source URLs, and hashes in the development guide; the original HTML is still not a tracked resource.
 - `.github/workflows/tests.yml` runs only BibleDomain on pushes to `main`; its `xcode-27` runner availability and remote CI result were not verified.
 - The graph generation observed during inspection was `2026-09-29T22:43:41Z`, predating recent milestones. Coverage reported stale/new files and some Swift parse gaps; current-source fallback was used. Refresh/check the graph before relying on it again.
-- Exact-reference search is complete and committed (`749b1fd`, `1f60e8f`). Text search and any search index remain unimplemented.
+- Exact-reference search is complete and committed (`749b1fd`, `1f60e8f`). Text search was added later (linear scan, no index; see its milestone).
 - UI tests read and write the real `bible.readingPosition` unless run with a separate `BUNDLE_ID_PREFIX`; a launch-argument defaults suite was deferred.
-- The project declares more platforms than the macOS behavior verified here. Existing desktop-oriented UI and configuration are not evidence of mobile readiness.
+- The project declares more platforms than the macOS behavior verified here. Superseded 2026-10-03: iPhone and iPad have their own layouts, tested in simulators (see the last milestone); real devices and visionOS runs remain unchecked.
 
 ## Completed milestone — exact-reference parser/resolver (2026-09-30, committed in `749b1fd`)
 
@@ -179,9 +185,7 @@ Miguel separately reported passing manual checks for full KJV browsing, verse se
 - `933f25f` Rolling history summary: after an answer, turns beyond the history allowance are summarized in the background (limit min(600, budget/6), cut at a sentence end), stored as optional `historySummary`/`summarizedMessageCount` (old chats load), sent before recent turns; the keyword step also gets the summary and earlier questions (≤ 300 chars each). Discarded after New Chat/open; failure → trimming.
 - Fresh runs: BibleAI 60, app unit 108, UI 10 (1 gated skip), iOS + visionOS app builds, iOS UI-test build. Live (`longChatsRememberEarlyTurnsThroughTheSummary`, half budget): summaries created and folded on Apple and Qwen 1.7B; Apple kept "Aaron, Moses' brother" into turn 6, but neither model's keywords retrieved Exodus 32 for "what did that brother make…", so the final answer missed. At half budget answers were weaker than at full budget (fewer passages). An earlier run at a quarter budget showed a 600-char summary could crowd out all recent turns, which led to the budget-scaled limit.
 
-## Next task
-
-Items 1-4 are implemented. Item 4 (and the docs) are uncommitted; item 3 code is committed (`dd6f5f4`, `1f691dc`). Suggested commits for item 4: one for BibleAI (`BibleStudyContext`, request, prompt, tests), one for app/UI (model, view, reader wiring, tests, live smoke test), docs separate, excluding the `project.xcproj` signing line.
+## App icon work (2026-10-01, historical)
 
 On 2026-10-01, three raster app-icon concepts were generated in the selected luminous Bible direction and saved under `Design/AppIconConcepts/` as 1024 × 1024 PNGs, with a browser comparison page showing 32/64/128 px and rounded/circular previews. The source image-generation tool returned 1254 × 1254 PNGs, which were resized for review. The comparison page loaded all images in a local browser. No asset catalog or Xcode configuration was changed; the visual direction still needs selection and platform production work. Prompt text is in `Design/AppIconConcepts/PROMPTS.md`.
 
@@ -210,8 +214,6 @@ Miguel then supplied the original detailed holographic Bible-and-cupped-hand ima
 Miguel selected that version for the project. `OpenBibleAI/Assets.xcassets/AppIcon.appiconset/` now contains the selected 1024 × 1024 PNG plus the macOS size variants; its universal iOS slot covers iPhone/iPad. `OpenBibleAI/Assets.xcassets/AppIconVision.solidimagestack/` contains a transparent Bible-and-hand foreground and opaque midnight-blue background generated from the selected design. The Xcode project selects `AppIconVision` for visionOS SDKs and `AppIcon` for macOS/iOS. `Design/AppIconConcepts/compare-installed.html` previews both treatments at small sizes and masks; all 12 images loaded and the composition was visually inspected in the local browser. These are raster layers, not editable vector source.
 
 Verification on 2026-10-01: a fresh macOS `OpenBibleAI` build succeeded with the icon installed. Direct `actool` compilation succeeded for `iphonesimulator` with iPhone and iPad `AppIcon` renditions, and for `xrsimulator` with an `AppIconVision` solid image stack. Full iOS and visionOS app builds did not succeed for unrelated existing source compatibility errors: `BibleAI/OllamaProvider.swift` uses `Duration` with a package iOS deployment level below 16, and `OpenBibleAIApp.swift` declares a SwiftUI `Settings` scene unavailable on visionOS. No device or simulator app UI check was performed on those platforms. The icon assets are compiled, but this does not establish full iOS/visionOS app support.
-
-Next per the roadmap: **5. Release preparation** (tracked catalog-generation script, CI expansion, accessibility/keyboard/VoiceOver validation, platform selection, distribution review, limitations). This is mostly verification and process work; confirm scope with Miguel before starting.
 
 ## Milestone — installable Bible versions, comparison, es/pt-BR localization (2026-10-02, committed)
 
